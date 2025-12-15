@@ -1,11 +1,34 @@
-Flask
-Flask-SQLAlchemy
-Flask-Login
-Flask-WTF
-bootstrap-flask
-Flask-SocketIO
-email_validator
-osmnx
-geopandas
-sqlalchemy
-werkzeug
+# --- Core Flask Framework ---
+Flask==3.0.0
+Werkzeug==3.0.1
+
+# --- Database & Migrations (For models.py) ---
+Flask-SQLAlchemy==3.1.1
+Flask-Migrate==4.0.5
+SQLAlchemy==2.0.23
+
+# --- Authentication (For auth.py) ---
+Flask-Login==0.6.3
+email-validator==2.1.0  # Required if using WTForms for email validation
+
+# --- Forms (For forms.py) ---
+# Even if you move to React, you likely still have imports in forms.py
+# that will break if you uninstall this immediately.
+Flask-WTF==1.2.1
+WTForms==3.1.1
+
+# --- Real-time Chat (For events.py) ---
+Flask-SocketIO==5.3.6
+python-socketio==5.10.0
+# You need an async server for SocketIO. 'eventlet' or 'gevent' is standard.
+eventlet==0.33.3
+
+# --- API & Frontend Integration (CRITICAL FOR REACT) ---
+Flask-CORS==4.0.0      # <--- You MUST have this to talk to React
+python-dotenv==1.0.0   # To load .env variables
+
+# --- AI & Utilities (For your new services/) ---
+requests==2.31.0       # For calling external APIs (Maps, etc.)
+openai==1.3.0          # If you are using OpenAI for the AI Planner
+google-generativeai==0.8.5 #Use for backend
+scikit-learn==1.6.1 #Use for tag
