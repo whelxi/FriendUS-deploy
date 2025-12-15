@@ -1,0 +1,50 @@
+FRIENDUS
+├── app
+│   ├── __pycache__
+│   ├── blueprints
+│   │   ├── __pycache__
+│   │   ├── auth.py
+│   │   ├── chat.py
+│   │   ├── ext.py
+│   │   ├── finance.py
+│   │   ├── main.py
+│   │   ├── map.py
+│   │   └── planner.py
+│   ├── debug/
+│   ├── static/
+│   ├── templates
+│   │   ├── account.html
+│   │   ├── chat_lobby.html
+│   │   ├── chat_room.html
+│   │   ├── chat.html
+│   │   ├── finance.html
+│   │   ├── index.html
+│   │   ├── layout.html
+│   │   ├── location_detail.html
+│   │   ├── friends.html
+│   │   ├── login.html
+│   │   ├── map.html
+│   │   ├── planner.html
+│   │   ├── profile.html
+│   │   ├──onboarding.html
+│   │   └── register.html
+│   ├── __init__.py
+│   ├── events.py
+│   ├── extensions.py
+│   ├── forms.py
+│   ├── models.py
+│   └── utils.py
+├── auth
+│   └── app.py
+├── cache/
+├── .gitignore
+├── config.py
+├── environment.yml
+├── friendus.db
+├── LICENSE
+├── note.txt
+├── README.md
+├── requirements.txt
+└── run.py
+
+Đây là project tree của tôi cho hỏi bạn cần files nào

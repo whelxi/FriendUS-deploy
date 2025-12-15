@@ -1,0 +1,200 @@
+{% extends "layout.html" %}
+{% block content %}
+
+<div class="container py-4">
+    <h2><i class="bi bi-cash-coin"></i> Financial Allocation Map</h2>
+    
+    <div class="row">
+        <div class="col-md-4">
+            <div class="card mb-4 shadow-sm">
+                <div class="card-header bg-primary text-white">Create Transaction</div>
+                <div class="card-body">
+                    <form method="POST">
+                        {{ form.hidden_tag() }}
+                        
+                        <div class="mb-3">
+                            <label class="form-label fw-bold">Type:</label>
+                            {% for subfield in form.type %}
+                                <div class="form-check">
+                                    {{ subfield(class="form-check-input") }}
+                                    {{ subfield.label(class="form-check-label") }}
+                                </div>
+                            {% endfor %}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.amount.label(class="form-label") }}
+                            {{ form.amount(class="form-control", placeholder="50000") }}
+                        </div>
+                        <div class="mb-3">
+                            {{ form.description.label(class="form-label") }}
+                            {{ form.description(class="form-control") }}
+                        </div>
+                        
+                        <div class="form-check form-switch mb-2">
+                            {{ form.is_outside(class="form-check-input", id="switchOutside") }}
+                            <label class="form-check-label" for="switchOutside">Is Outside/Stranger?</label>
+                        </div>
+
+                        <div id="memberInput">
+                            {{ form.receiver.label(class="form-label") }}
+                            {{ form.receiver(class="form-select") }}
+                        </div>
+
+                        <div id="outsiderInput" style="display:none;">
+                            {{ form.outsider_name.label(class="form-label") }}
+                            {{ form.outsider_name(class="form-control", placeholder="Name e.g. Taxi Driver") }}
+                        </div>
+                        
+                        <br>
+                        {{ form.submit(class="btn btn-success w-100") }}
+                    </form>
+                </div>
+            </div>
+
+            {% if pending %}
+            <div class="card border-warning mb-4">
+                <div class="card-header bg-warning text-dark">Confirmation Needed</div>
+                <ul class="list-group list-group-flush">
+                    {% for p in pending %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between">
+                            <div>
+                                <strong>{{ p.sender.username }}</strong> 
+                                {% if p.type == 'debt' %} 
+                                    says they <span class="text-danger">OWE</span> you 
+                                {% else %} 
+                                    says they <span class="text-success">PAID</span> you 
+                                {% endif %}
+                                <br>
+                                <span class="fw-bold">{{ "{:,.0f}".format(p.amount) }}</span>
+                                <br><small class="text-muted">{{ p.description }}</small>
+                            </div>
+                            <form action="{{ url_for('finance.confirm_transaction', trans_id=p.id) }}" method="POST">
+                                <button type="submit" class="btn btn-sm btn-outline-success">Confirm</button>
+                            </form>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+
+            {% if history %}
+            <div class="card mb-4" style="max-height: 400px; overflow-y: auto;">
+                <div class="card-header bg-light fw-bold">Your History</div>
+                <ul class="list-group list-group-flush">
+                    {% for h in history %}
+                    <li class="list-group-item">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <small class="text-muted">{{ h.timestamp.strftime('%d/%m') }}</small>
+                                {% if h.type == 'debt' %}
+                                    <span class="badge bg-danger ms-1">Debt</span>
+                                {% else %}
+                                    <span class="badge bg-success ms-1">Repay</span>
+                                {% endif %}
+                                
+                                <div class="small fst-italic text-muted">{{ h.description }}</div>
+
+                                {% set partner = h.receiver.username if h.receiver else (h.outsider.name ~ ' (Out)') %}
+                                
+                                {% if h.sender_id == current_user.id %}
+                                    <span>To: <strong>{{ partner }}</strong></span>
+                                {% else %}
+                                    <span>From: <strong>{{ h.sender.username }}</strong></span>
+                                {% endif %}
+                                <div class="fw-bold">{{ "{:,.0f}".format(h.amount) }}</div>
+                            </div>
+
+                            <div class="text-end">
+                                <span class="badge bg-{{ 'primary' if h.status == 'confirmed' else 'warning text-dark' }}">
+                                    {{ h.status }}
+                                </span>
+                                {% if h.sender_id == current_user.id and h.status == 'pending' %}
+                                    <form action="{{ url_for('finance.delete_transaction', trans_id=h.id) }}" method="POST" class="mt-1">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 10px;">Cancel</button>
+                                    </form>
+                                {% endif %}
+                            </div>
+                        </div>
+                    </li>
+                    {% endfor %}
+                </ul>
+            </div>
+            {% endif %}
+        </div>
+
+        <div class="col-md-8">
+            <div class="card shadow-sm h-100">
+                <div class="card-header bg-dark text-white d-flex justify-content-between">
+                    <span>Debt Network (Arrow points to Creditor)</span>
+                    <button onclick="loadGraph()" class="btn btn-sm btn-light">Refresh</button>
+                </div>
+                <div class="card-body p-0">
+                    <div id="finance-network" style="height: 600px; width: 100%; background-color: #f8f9fa;"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+<script>
+    // Toggle logic cho Outsider
+    const switchOutside = document.getElementById('switchOutside');
+    const memberInput = document.getElementById('memberInput');
+    const outsiderInput = document.getElementById('outsiderInput');
+
+    if (switchOutside) {
+        switchOutside.addEventListener('change', function() {
+            if(this.checked) {
+                memberInput.style.display = 'none';
+                outsiderInput.style.display = 'block';
+            } else {
+                memberInput.style.display = 'block';
+                outsiderInput.style.display = 'none';
+            }
+        });
+    }
+
+    function loadGraph() {
+        // FIXED FETCH URL
+        fetch('{{ url_for("finance.api_finance_graph") }}')
+            .then(response => response.json())
+            .then(data => {
+                var nodes = new vis.DataSet(data.nodes);
+                var edges = new vis.DataSet(data.edges.map(e => ({
+                    from: e.from, 
+                    to: e.to, 
+                    label: e.label, 
+                    arrows: 'to',
+                    color: {color: '#dc3545'}, // Màu đỏ thể hiện nợ
+                    width: 2
+                })));
+
+                var container = document.getElementById('finance-network');
+                var dataVis = { nodes: nodes, edges: edges };
+                var options = {
+                    nodes: {
+                        font: { size: 16, color: '#343a40' },
+                        borderWidth: 2,
+                        color: { background: '#fff', border: '#dc3545' }
+                    },
+                    edges: {
+                        font: { align: 'middle', background: 'white' },
+                        smooth: { type: 'dynamic' }
+                    },
+                    physics: {
+                        stabilization: false,
+                        barnesHut: { gravitationalConstant: -3000 }
+                    }
+                };
+                var network = new vis.Network(container, dataVis, options);
+            });
+    }
+    document.addEventListener('DOMContentLoaded', loadGraph);
+</script>
+{% endblock %}

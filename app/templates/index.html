@@ -1,0 +1,113 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    
+    <div class="col-md-8">
+        
+        {% if current_user.is_authenticated %}
+        <div class="card shadow-sm mb-4">
+            <div class="card-body">
+                <form method="POST" action="" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    <div class="mb-3">
+                        {{ form.body(class="form-control", id="body", rows="3", placeholder="What's on your mind?") }}
+                    </div>
+                    
+                    <div class="mb-3">
+                        <label class="form-label small text-muted"><i class="bi bi-tags-fill"></i> Select Tags (Max 5):</label>
+                        <div class="d-flex flex-wrap gap-1" id="post-tags-container">
+                            {% for value, label in form.tags.choices %}
+                                <input type="checkbox" class="btn-check tag-checkbox" 
+                                       name="tags" id="tag_post_{{ loop.index }}" value="{{ value }}" autocomplete="off">
+                                <label class="btn btn-outline-primary btn-sm rounded-pill" for="tag_post_{{ loop.index }}">
+                                    {{ label }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <div class="input-group input-group-sm w-50">
+                            <label class="input-group-text"><i class="bi bi-image"></i></label>
+                            {{ form.media(class="form-control") }}
+                        </div>
+
+                        {{ form.submit(class="btn btn-primary px-4") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+        
+        <script>
+            document.querySelectorAll('#post-tags-container .tag-checkbox').forEach(checkbox => {
+                checkbox.addEventListener('change', function() {
+                    const checkedCount = document.querySelectorAll('#post-tags-container .tag-checkbox:checked').length;
+                    if (checkedCount > 5) {
+                        this.checked = false; // Bỏ chọn nếu vượt quá 5
+                        alert("You can only select up to 5 tags.");
+                    }
+                });
+            });
+        </script>
+        {% endif %}
+
+        <h3 class="mb-3">News Feed</h3>
+        {% for post in posts %}
+        <div class="card mb-3 shadow-sm post-card" data-tags="{{ post.tags }}">
+            
+            <div class="card-header d-flex align-items-center bg-white border-bottom-0 pt-3">
+                <img class="rounded-circle me-2" 
+                     src="{{ url_for('static', filename='profile_pics/' + post.author.image_file) }}" 
+                     alt="{{ post.author.username }}"
+                     style="width: 45px; height: 45px; object-fit: cover; border: 2px solid #e9ecef;">
+                
+                <div class="d-flex flex-column">
+                    <a href="{{ url_for('auth.profile', username=post.author.username) }}" class="fw-bold text-decoration-none text-dark">
+                        {{ post.author.username }}
+                    </a>
+                    <small class="text-muted" style="font-size: 0.8rem;">
+                        {{ post.timestamp.strftime('%Y-%m-%d %H:%M') }}
+                    </small>
+                </div>
+            </div>
+            
+            <div class="card-body pt-1">
+                <div class="card-text mb-2">{{ post.body | safe }}</div>
+                
+                {% if post.tags %}
+                <div class="mb-2">
+                    {% for tag in post.tags.split(',') %}
+                        {% if tag %}
+                            <span class="badge bg-light text-primary border border-primary me-1 fw-normal post-tag" 
+                                  style="cursor: pointer;">#{{ tag }}</span>
+                        {% endif %}
+                    {% endfor %}
+                </div>
+                {% endif %}
+
+                {% if post.media_filename %}
+                    <div class="mt-2">
+                        {% if post.media_filename.lower().endswith(('.mp4', '.mov', '.avi')) %}
+                            <video controls style="max-width: 100%; border-radius: 8px;">
+                                <source src="{{ url_for('static', filename='uploads/' + post.media_filename) }}" type="video/mp4">
+                            </video>
+                        {% else %}
+                            <img src="{{ url_for('static', filename='uploads/' + post.media_filename) }}" 
+                                 style="max-width: 100%; border-radius: 8px; border: 1px solid #eee;">
+                        {% endif %}
+                    </div>
+                {% endif %}
+            </div>
+        </div>
+        {% else %}
+            <div class="alert alert-info">No posts found.</div>
+        {% endfor %}
+        
+        </div>
+
+    <div class="col-md-4">
+        </div>
+
+</div>
+{% endblock %}

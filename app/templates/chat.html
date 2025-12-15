@@ -1,0 +1,92 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row">
+    <div class="col-md-10 offset-md-1 col-lg-8 offset-lg-2">
+        <h2 class="mb-4 text-center">Group Chat</h2>
+        
+        <div class="card mb-3">
+            <div class="card-body" id="messages" style="height: 60vh; overflow-y: scroll; display: flex; flex-direction: column;">
+                <div class="text-muted text-center small my-2">Welcome to the chat!</div>
+            </div>
+        </div>
+
+        <form id="chat-form">
+            <div class="input-group">
+                <input type="text" class="form-control" id="message-input" placeholder="Type your message..." autocomplete="off" aria-label="Message">
+                <button class="btn btn-primary" type="submit">Send</button>
+            </div>
+        </form>
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+
+    <script type="text/javascript">
+        document.addEventListener('DOMContentLoaded', (event) => {
+            // 1. Connect to the Socket.IO server
+            // The connection is automatically established by including the library
+            var socket = io();
+            
+            const messageContainer = document.getElementById('messages');
+            const chatForm = document.getElementById('chat-form');
+            const messageInput = document.getElementById('message-input');
+
+            // Function to scroll to the bottom
+            function scrollToBottom() {
+                messageContainer.scrollTop = messageContainer.scrollHeight;
+            }
+
+            // Function to add a message to the chat window
+            function addMessage(html) {
+                const msgDiv = document.createElement('div');
+                msgDiv.innerHTML = html;
+                messageContainer.appendChild(msgDiv);
+                scrollToBottom();
+            }
+
+            // 2. Handle form submission to send a message
+            chatForm.addEventListener('submit', function(e) {
+                e.preventDefault(); // Prevent page reload
+                let msg = messageInput.value.trim();
+                if (msg) {
+                    // Emit 'send_message' event to the server
+                    socket.emit('send_message', { 'msg': msg });
+                    messageInput.value = ''; // Clear input
+                }
+            });
+
+            // 3. Listen for 'receive_message' events from the server
+            socket.on('receive_message', function(data) {
+                let align = data.username === '{{ current_user.username }}' ? 'align-self-end bg-primary text-white' : 'align-self-start bg-light';
+                let usernameDisplay = data.username === '{{ current_user.username }}' ? 'You' : data.username;
+
+                let msgHtml = `
+                    <div class="card d-inline-block p-2 mb-2 ${align}" style="max-width: 75%; border: none;">
+                        <div class="d-flex justify-content-between">
+                            <strong class="small">${usernameDisplay}</strong>
+                            <small class="text-muted ms-3">${data.timestamp}</small>
+                        </div>
+                        <div class="card-text">${data.msg}</div>
+                    </div>
+                `;
+                addMessage(msgHtml);
+            });
+
+            // 4. Listen for 'status' events (like joins/leaves)
+            socket.on('status', function(data) {
+                let statusHtml = `
+                    <div class="text-muted text-center small my-2">
+                        <em>${data.msg}</em>
+                    </div>
+                `;
+                addMessage(statusHtml);
+            });
+
+            // Scroll to bottom on initial load
+            scrollToBottom();
+        });
+    </script>
+{% endblock %} 

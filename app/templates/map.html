@@ -1,0 +1,543 @@
+{% extends "layout.html" %}
+
+{% set full_width = True %}
+
+{% block content %}
+<style>
+    /* --- Base --- */
+    body, html { overflow: hidden; } 
+    #map-container { position: relative; width: 100%; height: calc(100vh - 56px); font-family: 'Roboto', 'Segoe UI', sans-serif; }
+    #map { width: 100%; height: 100%; }
+
+    /* --- Floating Search Bar (State A) --- */
+    #floating-search-bar {
+        position: absolute; top: 16px; left: 16px; z-index: 1000;
+        display: flex; gap: 8px; align-items: center;
+        transition: opacity 0.2s ease;
+    }
+    
+    .search-container-pill {
+        background: white; border-radius: 8px;
+        box-shadow: 0 2px 4px rgba(0,0,0,0.2), 0 -1px 0px rgba(0,0,0,0.02);
+        display: flex; align-items: center;
+        width: 392px; height: 48px; padding: 0 12px;
+        transition: box-shadow 0.2s;
+    }
+    .search-container-pill:hover { box-shadow: 0 4px 8px rgba(0,0,0,0.2); }
+
+    .menu-btn { padding: 8px; border: none; background: none; font-size: 20px; color: #5f6368; cursor: pointer; border-radius: 50%; }
+    .menu-btn:hover { background: #f1f3f4; }
+
+    .search-input { flex: 1; border: none; outline: none; font-size: 16px; background: transparent; height: 100%; padding-left: 10px; color: #202124; }
+    
+    .search-btn-grey { border: none; background: none; color: #5f6368; font-size: 20px; cursor: pointer; padding: 8px; border-radius: 50%; }
+    .search-btn-grey:hover { background: #f1f3f4; color: #202124; }
+
+    .v-divider { width: 1px; height: 28px; background: #dfe1e5; margin: 0 8px; }
+
+    .direction-icon-btn { border: none; background: none; color: #1a73e8; font-size: 22px; cursor: pointer; padding: 8px; border-radius: 50%; transition: background 0.2s; }
+    .direction-icon-btn:hover { background: #e8f0fe; }
+
+    /* --- Sidebar Panel (State B) --- */
+    #sidebar-panel {
+        position: absolute; top: 0; left: 0; bottom: 0; width: 408px;
+        background: white; z-index: 1001;
+        box-shadow: 4px 0 12px rgba(0,0,0,0.15);
+        transform: translateX(-110%); 
+        transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1);
+        display: flex; flex-direction: column;
+    }
+    #sidebar-panel.active { transform: translateX(0); }
+
+    .sidebar-header { background: white; padding: 12px 16px; display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0; }
+
+    .close-sidebar-btn { background: transparent; border: none; color: #5f6368; font-size: 22px; cursor: pointer; padding: 8px; border-radius: 50%; margin-top: 4px; }
+    .close-sidebar-btn:hover { background: #f1f3f4; }
+
+    .route-inputs-container { flex: 1; display: flex; flex-direction: column; gap: 8px; }
+    
+    .input-row { background: #f1f3f4; border-radius: 8px; height: 40px; display: flex; align-items: center; padding: 0 12px; border: 1px solid transparent; }
+    .input-row:focus-within { background: white; border-color: #dadce0; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+    .input-row input { border: none; background: transparent; outline: none; width: 100%; font-size: 14px; }
+
+    .mode-selector { display: flex; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid #e8eaed; flex-shrink: 0; }
+    .mode-btn { flex: 1; border: none; background: none; padding: 6px; border-radius: 20px; color: #5f6368; cursor: pointer; display: flex; justify-content: center; }
+    .mode-btn.active { background: #e8f0fe; color: #1967d2; font-weight: 500; }
+
+    /* --- Route Instructions List --- */
+    #route-panel-content {
+        flex: 1; overflow-y: auto; padding: 0;
+    }
+    .instruction-step {
+        padding: 12px 16px;
+        border-bottom: 1px solid #f1f3f4;
+        display: flex; gap: 12px; align-items: flex-start;
+    }
+    .instruction-step:hover { background: #f8f9fa; }
+    .step-icon { color: #5f6368; font-size: 20px; margin-top: -2px; }
+    .step-text { font-size: 14px; color: #202124; line-height: 1.4; }
+    .step-dist { font-size: 12px; color: #70757a; margin-top: 2px; }
+    
+    .route-summary { padding: 16px; background: #f8f9fa; border-bottom: 1px solid #e8eaed; }
+    .summary-time { font-size: 24px; color: #188038; font-weight: 500; }
+    .summary-dist { color: #5f6368; font-size: 15px; margin-left: 8px; }
+
+    /* --- Bottom Info Card --- */
+    #bottom-card {
+        position: absolute; bottom: 24px; left: 50%; transform: translate(-50%, 150%);
+        width: 95%; max-width: 400px;
+        background: white; border-radius: 12px;
+        box-shadow: 0 4px 20px rgba(0,0,0,0.18);
+        padding: 16px 20px; z-index: 999;
+        display: flex; align-items: center; justify-content: space-between;
+        transition: transform 0.3s cubic-bezier(0.16, 1, 0.3, 1);
+    }
+    #bottom-card.visible { transform: translate(-50%, 0); }
+    
+    .card-content { flex: 1; margin-right: 12px; }
+    .card-title { font-size: 16px; font-weight: 600; color: #202124; display: block; margin-bottom: 4px; }
+    .card-sub { font-size: 13px; color: #5f6368; line-height: 1.4; display: block; }
+    
+    .circle-btn {
+        width: 40px; height: 40px; border-radius: 50%;
+        background: #1a73e8; color: white; border: none; font-size: 20px;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: background 0.1s;
+    }
+    .circle-btn:hover { background: #174ea6; }
+
+    /* --- Search Results --- */
+    #search-results {
+        position: absolute; top: 70px; left: 16px; width: 392px;
+        background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        max-height: 80vh; overflow-y: auto; display: none; z-index: 1002;
+    }
+    .result-item { padding: 12px 16px; border-bottom: 1px solid #f1f3f4; cursor: pointer; display: flex; gap: 12px; align-items: center; }
+    .result-item:hover { background: #f8f9fa; }
+    .result-icon { color: #5f6368; font-size: 18px; }
+    .result-name { font-weight: 500; font-size: 14px; color: #202124; }
+    .result-addr { font-size: 13px; color: #70757a; }
+
+    /* [NEW] User Location Marker (Blue Dot) */
+    .user-marker-dot {
+        width: 16px; height: 16px;
+        background-color: #4285F4;
+        border: 2px solid white;
+        border-radius: 50%;
+        box-shadow: 0 0 0 10px rgba(66, 133, 244, 0.2); /* Blue halo */
+    }
+</style>
+
+<div id="map-container">
+    
+    <div id="floating-search-bar">
+        <div class="search-container-pill">
+            <button class="menu-btn"><i class="bi bi-list"></i></button>
+            <input type="text" id="main-search-input" class="search-input" placeholder="Search VietMap..." autocomplete="off">
+            <button class="search-btn-grey" id="btn-trigger-search" title="Search"><i class="bi bi-search"></i></button>
+            <div class="v-divider"></div>
+            <button class="direction-icon-btn" id="btn-open-routes" title="Directions"><i class="bi bi-cursor-fill"></i></button>
+        </div>
+    </div>
+
+    <div id="sidebar-panel">
+        <div class="sidebar-header">
+            <button class="close-sidebar-btn" id="btn-close-sidebar"><i class="bi bi-arrow-left"></i></button>
+            <div class="route-inputs-container">
+                <div class="input-row">
+                    <i class="bi bi-circle" style="font-size: 12px; margin-right: 10px; color: #5f6368;"></i>
+                    <input type="text" id="input-start" placeholder="Choose starting point" autocomplete="off">
+                </div>
+                <div class="input-row">
+                    <i class="bi bi-geo-alt-fill" style="font-size: 16px; margin-right: 10px; color: #ea4335;"></i>
+                    <input type="text" id="input-end" placeholder="Choose destination" autocomplete="off">
+                </div>
+            </div>
+        </div>
+
+        <div class="mode-selector">
+            <button class="mode-btn active" title="Driving"><i class="bi bi-car-front-fill"></i></button>
+            <button class="mode-btn" title="Transit"><i class="bi bi-train-front-fill"></i></button>
+            <button class="mode-btn" title="Walking"><i class="bi bi-person-walking"></i></button>
+            <button class="mode-btn" title="Cycling"><i class="bi bi-bicycle"></i></button>
+        </div>
+
+        <div id="route-panel-content">
+            <div style="padding: 30px; text-align: center; color: #70757a;">
+                <i class="bi bi-map" style="font-size: 40px; color: #dfe1e5;"></i>
+                <p style="margin-top: 10px;">Select a destination to view route.</p>
+            </div>
+        </div>
+    </div>
+
+    <div id="bottom-card">
+        <div class="card-content">
+            <span class="card-title" id="info-name">Selected Location</span>
+            <span class="card-sub" id="info-addr">Fetching address...</span>
+        </div>
+        <div class="card-actions">
+            <button class="circle-btn" id="btn-card-directions" title="Directions to here">
+                <i class="bi bi-cursor-fill"></i>
+            </button>
+        </div>
+    </div>
+
+    <div id="search-results"></div>
+    <div id="map"></div>
+</div>
+
+<script id="map-config" type="application/json">
+{
+    "apiKey": "{{ vietmap_api_key }}",
+    "savedLocations": {{ locations_data | tojson }},
+    "urls": { 
+        "search": "{{ url_for('map.api_search') }}", 
+        "detail": "{{ url_for('map.api_detail') }}",
+        "reverse": "{{ url_for('map.api_reverse') }}",
+        "route": "{{ url_for('map.api_route') }}",
+        "create": "{{ url_for('map.create_location_on_click') }}" 
+    }
+}
+</script>
+{% endblock %}
+
+{% block scripts %}
+<script>
+class MapManager {
+    constructor() {
+        this.config = JSON.parse(document.getElementById('map-config').textContent);
+        this.map = null;
+        this.markers = { start: null, end: null, search: null, user: null }; // Track markers
+        this.searchTimeout = null;
+        this.mode = 'search'; 
+        this.activeInput = 'main'; 
+        this.locations = { start: null, end: null };
+        this.currentSelection = null;
+
+        this.dom = {
+            searchBar: document.getElementById('floating-search-bar'),
+            sidebar: document.getElementById('sidebar-panel'),
+            bottomCard: document.getElementById('bottom-card'),
+            results: document.getElementById('search-results'),
+            routePanel: document.getElementById('route-panel-content'),
+            inputs: {
+                main: document.getElementById('main-search-input'),
+                start: document.getElementById('input-start'),
+                end: document.getElementById('input-end')
+            },
+            infoName: document.getElementById('info-name'),
+            infoAddr: document.getElementById('info-addr'),
+            btnCardRoute: document.getElementById('btn-card-directions')
+        };
+
+        this.init();
+    }
+
+    init() {
+        this.map = new vietmapgl.Map({
+            container: 'map',
+            style: `https://maps.vietmap.vn/maps/styles/tm/style.json?apikey=${this.config.apiKey}`,
+            center: [106.660172, 10.762622], zoom: 13
+        });
+        
+        this.map.addControl(new vietmapgl.NavigationControl(), 'bottom-right');
+        const geolocate = new vietmapgl.GeolocateControl({enableHighAccuracy: true});
+        this.map.addControl(geolocate, 'bottom-right');
+
+        this.setupListeners();
+    }
+
+    setupListeners() {
+        document.getElementById('btn-open-routes').onclick = () => this.setMode('route');
+        document.getElementById('btn-close-sidebar').onclick = () => this.setMode('search');
+
+        this.dom.btnCardRoute.onclick = () => {
+            if (this.currentSelection) {
+                this.setMode('route');
+                this.selectLocation(this.currentSelection, 'end');
+                this.dom.inputs.start.focus();
+            }
+        };
+
+        ['main', 'start', 'end'].forEach(key => {
+            const input = this.dom.inputs[key];
+            input.addEventListener('focus', () => this.activeInput = key);
+            input.addEventListener('input', () => {
+                clearTimeout(this.searchTimeout);
+                this.searchTimeout = setTimeout(() => this.performSearch(input.value), 300);
+            });
+        });
+
+        document.getElementById('btn-trigger-search').onclick = () => this.performSearch(this.dom.inputs.main.value);
+        this.map.on('click', (e) => this.handleMapClick(e));
+    }
+
+    async handleMapClick(e) {
+        if (this.mode === 'search') {
+            const { lat, lng } = e.lngLat;
+            this.showBottomCard(lat, lng, "Dropped Pin", "Fetching address...");
+            
+            try {
+                const res = await fetch(`${this.config.urls.reverse}?lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                
+                let name = "Dropped Pin";
+                let addr = "Unknown location";
+                
+                if (data && data[0]) {
+                    if (data[0].name) name = data[0].name;
+                    if (data[0].address) addr = data[0].address;
+                } else if (data.address) {
+                    addr = data.address;
+                }
+                this.showBottomCard(lat, lng, name, addr);
+            } catch (err) { console.error(err); }
+        }
+    }
+
+    showBottomCard(lat, lng, name, addr) {
+        this.currentSelection = { lat, lon: lng, name };
+        
+        if (this.markers.search) this.markers.search.remove();
+        this.markers.search = new vietmapgl.Marker({ color: "#ea4335" })
+            .setLngLat([lng, lat])
+            .addTo(this.map);
+
+        this.map.flyTo({ center: [lng, lat], zoom: 16 });
+
+        this.dom.infoName.innerText = name;
+        this.dom.infoAddr.innerText = addr;
+        this.dom.bottomCard.classList.add('visible');
+        this.dom.results.style.display = 'none';
+    }
+
+    setMode(mode) {
+        this.mode = mode;
+        if (mode === 'route') {
+            this.dom.searchBar.style.opacity = '0'; 
+            this.dom.searchBar.style.pointerEvents = 'none'; 
+            this.dom.bottomCard.classList.remove('visible'); 
+            this.dom.sidebar.classList.add('active');
+            
+            if (this.dom.inputs.main.value && !this.locations.end) {
+                this.dom.inputs.end.value = this.dom.inputs.main.value;
+            }
+        } else {
+            this.dom.searchBar.style.opacity = '1';
+            this.dom.searchBar.style.pointerEvents = 'auto';
+            this.dom.sidebar.classList.remove('active');
+            this.clearRoute();
+        }
+    }
+
+    // --- USER LOCATION LOGIC ---
+    async getUserLocation() {
+        return new Promise((resolve, reject) => {
+            if (!navigator.geolocation) { alert("Geo not supported"); return reject(); }
+            navigator.geolocation.getCurrentPosition(
+                pos => {
+                    const loc = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: "Your Location", isUser: true };
+                    
+                    // [FEATURE] Display User Dot
+                    if (this.markers.user) this.markers.user.remove();
+                    
+                    // Create Blue Dot Element
+                    const el = document.createElement('div');
+                    el.className = 'user-marker-dot';
+
+                    this.markers.user = new vietmapgl.Marker(el)
+                        .setLngLat([loc.lon, loc.lat])
+                        .addTo(this.map);
+                    
+                    this.map.flyTo({ center: [loc.lon, loc.lat], zoom: 14 });
+                    resolve(loc);
+                },
+                err => reject(err),
+                { enableHighAccuracy: true }
+            );
+        });
+    }
+
+    // --- SEARCH ---
+    async performSearch(query) {
+        if (!query || query.length < 2) { this.dom.results.style.display = 'none'; return; }
+        try {
+            const res = await fetch(`${this.config.urls.search}?query=${encodeURIComponent(query)}`);
+            const data = await res.json();
+            this.renderResults(data);
+        } catch (e) { console.error(e); }
+    }
+
+    renderResults(data) {
+        this.dom.results.innerHTML = '';
+        this.dom.results.style.display = 'block';
+
+        if (this.activeInput === 'start' || this.activeInput === 'end') {
+            const myLoc = document.createElement('div');
+            myLoc.className = 'result-item';
+            myLoc.innerHTML = '<i class="bi bi-geo-alt-fill result-icon" style="color:#1a73e8"></i> <span class="result-name">Your Location</span>';
+            myLoc.onclick = () => {
+                this.getUserLocation().then(loc => this.selectLocation(loc, this.activeInput));
+            };
+            this.dom.results.appendChild(myLoc);
+        }
+
+        data.forEach(place => {
+            const item = document.createElement('div');
+            item.className = 'result-item';
+            item.innerHTML = `
+                <i class="bi bi-geo-alt result-icon"></i>
+                <div class="result-text">
+                    <span class="result-name">${place.display_name || place.name}</span>
+                    <span class="result-addr">${place.address || ""}</span>
+                </div>`;
+            
+            item.onclick = async () => {
+                let lat = place.lat || place.latitude;
+                let lng = place.lng || place.lon;
+                
+                if ((!lat || !lng) && place.ref_id) {
+                    const dRes = await fetch(`${this.config.urls.detail}?ref_id=${place.ref_id}`);
+                    const dData = await dRes.json();
+                    lat = dData.lat; lng = dData.lng;
+                }
+
+                const loc = { lat: parseFloat(lat), lon: parseFloat(lng), name: place.display_name || place.name };
+                
+                if (this.activeInput === 'main') {
+                    this.showBottomCard(loc.lat, loc.lon, loc.name, place.address || "");
+                    this.dom.inputs.main.value = loc.name;
+                } else {
+                    this.selectLocation(loc, this.activeInput);
+                }
+            };
+            this.dom.results.appendChild(item);
+        });
+    }
+
+    selectLocation(loc, inputType) {
+        this.dom.results.style.display = 'none';
+        this.dom.inputs[inputType].value = loc.name;
+        this.locations[inputType] = loc;
+
+        // [FEATURE] Add Markers for Start/End
+        if (inputType === 'start' || inputType === 'end') {
+            // Remove old marker for this slot
+            if (this.markers[inputType]) this.markers[inputType].remove();
+            
+            // Don't add a red pin if it's the User Location (Blue dot already there)
+            if (!loc.isUser) {
+                const color = inputType === 'start' ? '#5f6368' : '#ea4335'; // Grey for Start, Red for End
+                this.markers[inputType] = new vietmapgl.Marker({ color: color })
+                    .setLngLat([loc.lon, loc.lat])
+                    .addTo(this.map);
+            }
+        }
+        
+        if (this.locations.start && this.locations.end) {
+            this.calculateRoute();
+        }
+    }
+
+    async calculateRoute() {
+        const p1 = `${this.locations.start.lat},${this.locations.start.lon}`;
+        const p2 = `${this.locations.end.lat},${this.locations.end.lon}`;
+        
+        this.dom.routePanel.innerHTML = '<div class="p-4 text-center text-muted">Calculatng route...</div>';
+
+        try {
+            const res = await fetch(`${this.config.urls.route}?point1=${p1}&point2=${p2}`);
+            const data = await res.json();
+
+            if (data.paths && data.paths[0]) {
+                const path = data.paths[0];
+                this.drawRoute(path.points);
+                
+                // [FEATURE] Display Specific Route Instructions
+                this.renderInstructions(path);
+
+                if(path.bbox) {
+                    this.map.fitBounds([[path.bbox[0], path.bbox[1]], [path.bbox[2], path.bbox[3]]], { padding: 50 });
+                }
+            } else {
+                this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">No route found.</div>';
+            }
+        } catch (e) {
+            this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">Error calculating route.</div>';
+            console.error(e);
+        }
+    }
+
+    renderInstructions(path) {
+        const dist = (path.distance / 1000).toFixed(1); 
+        const time = Math.round(path.time / 60000); 
+
+        let html = `
+            <div class="route-summary">
+                <span class="summary-time">${time} min</span>
+                <span class="summary-dist">(${dist} km)</span>
+                <div style="font-size:13px; color:#5f6368; margin-top:4px;">Fastest route</div>
+            </div>`;
+
+        if (path.instructions) {
+            path.instructions.forEach(instr => {
+                // Basic icon mapping based on sign number (GraphHopper standard)
+                let icon = 'bi-arrow-up';
+                if (instr.sign === -2) icon = 'bi-arrow-left'; // turn left
+                if (instr.sign === 2) icon = 'bi-arrow-right'; // turn right
+                if (instr.sign === 4) icon = 'bi-geo-alt'; // arrive
+
+                html += `
+                    <div class="instruction-step">
+                        <i class="bi ${icon} step-icon"></i>
+                        <div style="flex:1">
+                            <div class="step-text">${instr.text}</div>
+                            <div class="step-dist">${instr.distance}m</div>
+                        </div>
+                    </div>`;
+            });
+        }
+        this.dom.routePanel.innerHTML = html;
+    }
+
+    drawRoute(points) {
+        if (this.map.getLayer('route')) this.map.removeLayer('route');
+        if (this.map.getSource('route')) this.map.removeSource('route');
+
+        let geometryData = points;
+        if (Array.isArray(points)) {
+            geometryData = { "type": "LineString", "coordinates": points };
+        }
+        
+        this.map.addSource('route', {
+            'type': 'geojson',
+            'data': { 'type': 'Feature', 'properties': {}, 'geometry': geometryData }
+        });
+
+        this.map.addLayer({
+            'id': 'route',
+            'type': 'line',
+            'source': 'route',
+            'layout': { 'line-join': 'round', 'line-cap': 'round' },
+            'paint': { 'line-color': '#ea4335', 'line-width': 6 }
+        });
+    }
+
+    clearRoute() {
+        if (this.map.getLayer('route')) this.map.removeLayer('route');
+        if (this.map.getSource('route')) this.map.removeSource('route');
+        
+        // Remove Start/End markers (but keep user dot if it exists)
+        if (this.markers.start) { this.markers.start.remove(); this.markers.start = null; }
+        if (this.markers.end) { this.markers.end.remove(); this.markers.end = null; }
+        
+        this.locations = { start: null, end: null };
+        this.dom.inputs.start.value = '';
+        this.dom.inputs.end.value = '';
+        this.dom.routePanel.innerHTML = '<div style="padding: 30px; text-align: center; color: #70757a;"><i class="bi bi-map" style="font-size: 40px; color: #dfe1e5;"></i><p style="margin-top: 10px;">Select a destination to view route.</p></div>';
+    }
+}
+
+document.addEventListener('DOMContentLoaded', () => new MapManager());
+</script>
+{% endblock %}

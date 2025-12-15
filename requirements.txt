@@ -1,0 +1,11 @@
+Flask
+Flask-SQLAlchemy
+Flask-Login
+Flask-WTF
+bootstrap-flask
+Flask-SocketIO
+email_validator
+osmnx
+geopandas
+sqlalchemy
+werkzeug

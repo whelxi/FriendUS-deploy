@@ -1,0 +1,45 @@
+name: friendus-env
+channels:
+  - conda-forge
+  - defaults  
+dependencies:
+  # --- Core Python ---
+  - python=3.14
+  - pip
+
+  # --- Flask Web Framework ---
+  - flask
+  - bootstrap-flask    # REQUIRED for: from flask_bootstrap import Bootstrap5
+  - flask-login        # REQUIRED for: login_user, current_user, etc.
+  - flask-socketio     # REQUIRED for: SocketIO, emit, join_room
+  - flask-sqlalchemy   # REQUIRED for: db, models
+  - flask-wtf          # REQUIRED for: forms (RegisterForm, LoginForm, etc.)
+  - email-validator    # REQUIRED for: validating emails in your forms
+  - eventlet          # The Windows web server (replaces gunicorn)
+
+  # --- Geospatial Data (The heavy lifters) ---
+  - osmnx              # REQUIRED for: import osmnx
+  - geopandas          # REQUIRED for: import geopandas
+  - pyogrio            # Faster file reading for geopandas (highly recommended)
+  - matplotlib-base    # Often needed by osmnx for plotting (optional but good to have)
+
+  # --- Database ---
+  - sqlalchemy
+
+  # --- Auth
+  - Authlib
+  - requests
+  - python-dotenv
+
+  # Utilities
+  - Pillow
+  - markdown
+  - bleach
+
+  # AI
+  - fastapi
+  - uvicorn
+  - pydantic
+  - scikit-learn
+  - numpy
+  - google-generativeai

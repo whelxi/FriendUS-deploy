@@ -1,0 +1,278 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>FriendUS{% if title %} - {{ title }}{% endif %}</title>
+    
+    {{ bootstrap.load_css() }}
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <link href="https://unpkg.com/@vietmap/vietmap-gl-js@6.0.0/dist/vietmap-gl.css" rel="stylesheet" />
+
+    <script src="https://cdn.ckeditor.com/ckeditor5/39.0.1/classic/ckeditor.js"></script>
+
+    <style>
+        html, body {
+            height: 100%;
+            margin: 0;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+        
+        .navbar {
+            flex: 0 0 auto; 
+            margin-bottom: 0 !important;
+            z-index: 1050;
+        }
+
+        #main-wrapper {
+            flex: 1 1 auto;
+            display: flex;
+            flex-direction: column;
+            position: relative;
+            overflow-y: auto;
+            overflow-x: hidden;
+            background: #f8f9fa;
+        }
+
+        .full-width-wrapper {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            width: 100%;
+            height: 100%;
+            padding: 0;
+        }
+
+        /* Scattered Widget Styles */
+        .scattered-toggle-btn {
+            position: fixed; bottom: 20px; left: 20px; width: 60px; height: 60px;
+            background-color: #4a90e2; color: white; border-radius: 50%; border: none;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3); z-index: 2000; cursor: pointer;
+            font-size: 24px; display: flex; align-items: center; justify-content: center;
+        }
+        .scattered-widget {
+            position: fixed; bottom: 90px; left: 20px; width: 320px; height: 450px;
+            background-color: #ffffff; border-radius: 15px; box-shadow: 0 10px 25px rgba(0,0,0,0.2);
+            z-index: 2000; display: none; flex-direction: column; border: 1px solid #e0e0e0;
+        }
+        .sw-list { flex: 1; padding: 10px; overflow-y: auto; }
+        .sw-item { padding: 10px; border-bottom: 1px solid #eee; display: flex; justify-content: space-between; }
+        .sw-modal-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.5);
+            z-index: 2100; display: none; justify-content: center; align-items: center;
+        }
+        .sw-modal-box { background: white; padding: 20px; border-radius: 10px; width: 300px; }
+        
+        /* [NEW] Style adjustments for the Headless Editor */
+        .ck-editor__editable_inline {
+            min-height: 100px;
+        }
+    </style>
+  </head>
+  <body>
+    
+    {# --- CHỈNH SỬA: Thêm điều kiện if not hide_nav --- #}
+    {% if not hide_nav %}
+    <nav class="navbar navbar-expand-lg navbar-dark bg-primary">
+      <div class="container">
+        <a class="navbar-brand" href="{{ url_for('main.index') }}">FriendUS</a>
+        <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav">
+          <span class="navbar-toggler-icon"></span>
+        </button>
+        <div class="collapse navbar-collapse" id="navbarNav">
+          <ul class="navbar-nav ms-auto">
+          {% if current_user.is_authenticated %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('main.index') }}">Home</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('map.map') }}">Map</a></li>
+            <li class="nav-item"> <a class="nav-link" href="{{ url_for('main.friends') }}">Friends</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('chat.chat') }}">Chat</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.profile', username=current_user.username) }}">Profile</a></li>
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.logout') }}">Logout</a></li>
+          {% else %}
+            <li class="nav-item"><a class="nav-link" href="{{ url_for('auth.login') }}">Login</a></li>
+          {% endif %}
+          </ul>
+        </div>
+      </div>
+    </nav>
+    {% endif %}
+    {# --- KẾT THÚC CHỈNH SỬA --- #}
+
+    <div id="main-wrapper">
+        {% with messages = get_flashed_messages(with_categories=true) %}
+            {% if messages %}
+                <div class="container mt-3">
+                    {% for category, message in messages %}
+                        <div class="alert alert-{{ category }}">{{ message }}</div>
+                    {% endfor %}
+                </div>
+            {% endif %}
+        {% endwith %}
+
+        <div class="{{ 'full-width-wrapper' if full_width else 'container mt-4' }}">
+            {% block content %}{% endblock %}
+        </div>
+    </div>
+
+    {# --- CHỈNH SỬA: Ẩn luôn nút Widget nếu đang ở chế độ hide_nav --- #}
+    {% if current_user.is_authenticated and not hide_nav %}
+    <button class="scattered-toggle-btn" onclick="toggleWidget()"><i class="bi bi-journal-bookmark-fill"></i></button>
+    <div class="scattered-widget" id="swWidget">
+        <div style="padding:10px; background:#f1f1f1;"><h6 class="m-0">Saved Links</h6></div>
+        <div class="sw-list" id="swList"></div>
+        <div style="padding:10px; text-align:center;"><button class="btn btn-primary btn-sm w-100" onclick="openSwModal()">+ Add</button></div>
+    </div>
+    <div class="sw-modal-overlay" id="swModal">
+        <div class="sw-modal-box">
+            <h6>Add Link</h6>
+            <input type="text" id="swInputTitle" class="form-control mb-2" placeholder="Title">
+            <input type="text" id="swInputLink" class="form-control mb-2" placeholder="Link/Content">
+            <div class="d-flex justify-content-end gap-2">
+                <button class="btn btn-secondary btn-sm" onclick="closeSwModal()">Cancel</button>
+                <button class="btn btn-primary btn-sm" onclick="addSwItem()">Save</button>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+    {# --- KẾT THÚC CHỈNH SỬA --- #}
+
+    {{ bootstrap.load_js() }}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    
+    <script src="https://unpkg.com/@vietmap/vietmap-gl-js@6.0.0/dist/vietmap-gl.js"></script>
+
+    <script>
+        const swWidget = document.getElementById('swWidget');
+        const swModal = document.getElementById('swModal');
+        const swList = document.getElementById('swList');
+        
+        function toggleWidget() { if(swWidget) { swWidget.style.display = (swWidget.style.display === 'flex') ? 'none' : 'flex'; loadSwItems(); } }
+        function openSwModal() { if(swModal) swModal.style.display = 'flex'; }
+        function closeSwModal() { if(swModal) swModal.style.display = 'none'; }
+        
+        function loadSwItems() {
+            if(!swList) return;
+            swList.innerHTML = '';
+            const data = JSON.parse(localStorage.getItem('scattered_info') || '[]');
+            data.forEach((item, i) => {
+                const div = document.createElement('div');
+                div.className = 'sw-item';
+                div.innerHTML = `<div><strong>${item.title}</strong><br><small>${item.link}</small></div><button class="btn btn-danger btn-sm" onclick="removeItem(${i})">x</button>`;
+                swList.appendChild(div);
+            });
+        }
+        function addSwItem() {
+            const t = document.getElementById('swInputTitle').value;
+            const l = document.getElementById('swInputLink').value;
+            if(!t) return;
+            const data = JSON.parse(localStorage.getItem('scattered_info') || '[]');
+            data.push({title: t, link: l});
+            localStorage.setItem('scattered_info', JSON.stringify(data));
+            closeSwModal(); loadSwItems();
+        }
+        function removeItem(i) {
+            const data = JSON.parse(localStorage.getItem('scattered_info') || '[]');
+            data.splice(i, 1);
+            localStorage.setItem('scattered_info', JSON.stringify(data));
+            loadSwItems();
+        }
+
+        // [MODIFIED] Initialize "Headless" CKEditor (Discord-style)
+        document.addEventListener("DOMContentLoaded", function() {
+            const postBody = document.querySelector('#body');
+            
+            if (postBody) {
+                ClassicEditor
+                    .create(postBody, {
+                        // 1. Hide the toolbar (Clean look)
+                        toolbar: [],
+                        
+                        // 2. Placeholder text
+                        placeholder: "What's on your mind?"
+                    })
+                    .then(editor => {
+                        // 3. FIX: Sync data so the "Post" button works
+                        editor.model.document.on('change:data', () => {
+                            postBody.value = editor.getData();
+                        });
+
+                        // 4. CSS Tweak: Hide the empty toolbar border completely
+                        const toolbarElement = editor.ui.view.toolbar.element;
+                        toolbarElement.style.display = 'none';
+
+                        // 5. CSS Tweak: Style the input box to look like a text area
+                        editor.editing.view.change(writer => {
+                            const root = editor.editing.view.document.getRoot();
+                            writer.setStyle('padding', '15px', root);
+                            writer.setStyle('border-radius', '8px', root);
+                            writer.setStyle('background-color', '#fff', root);
+                        });
+                    })
+                    .catch(error => {
+                        console.error(error);
+                    });
+            }
+        });
+    </script>
+
+    {% block scripts %}{% endblock %}
+  </body>
+  <script>
+    // Hàm gửi tín hiệu về Server mà không cần load lại trang
+    function sendInterestSignal(tag) {
+        if (!tag) return;
+        fetch('/api/track_interest', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': "{{ csrf_token() if csrf_token else '' }}" // Nếu bạn có dùng CSRF Protect
+            },
+            body: JSON.stringify({ tag: tag })
+        }).then(res => console.log(`Interest recorded: ${tag}`))
+          .catch(err => console.error(err));
+    }
+
+    document.addEventListener("DOMContentLoaded", function() {
+        // 1. BẮT SỰ KIỆN CLICK VÀO CÁC TAG (Giả sử bạn hiển thị tag trong thẻ <span class="post-tag">)
+        document.querySelectorAll('.post-tag').forEach(item => {
+            item.addEventListener('click', event => {
+                let tagContent = event.target.innerText.trim(); // Lấy tên tag
+                sendInterestSignal(tagContent);
+            });
+        });
+
+        // 2. (NÂNG CAO) BẮT SỰ KIỆN ĐỌC BÀI (Intersection Observer)
+        // Nếu user cuộn tới bài viết và dừng lại > 2 giây -> Tính là quan tâm
+        let observerOptions = { root: null, threshold: 0.5 }; // 50% bài viết hiển thị
+        
+        let observer = new IntersectionObserver((entries) => {
+            entries.forEach(entry => {
+                if (entry.isIntersecting) {
+                    // Lấy tags từ attribute data-tags (Bạn cần thêm vào HTML)
+                    let tags = entry.target.getAttribute('data-tags'); 
+                    if (tags) {
+                        // Set timeout 2s, nếu vẫn còn nhìn thì mới tính
+                        let timer = setTimeout(() => {
+                            if (entry.isIntersecting) { // Vẫn đang nhìn
+                                tags.split(',').forEach(t => sendInterestSignal(t.trim()));
+                            }
+                        }, 2000);
+                        entry.target.dataset.timerId = timer; // Lưu timer để clear nếu lướt qua nhanh
+                    }
+                } else {
+                    // Nếu lướt qua nhanh (<2s) thì hủy timer -> Không tính điểm
+                    clearTimeout(entry.target.dataset.timerId);
+                }
+            });
+        }, observerOptions);
+
+        // Áp dụng cho tất cả bài post (Giả sử bài post có class="post-card")
+        document.querySelectorAll('.post-card').forEach(post => {
+            observer.observe(post);
+        });
+    });
+</script>
+</html>

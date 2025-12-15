@@ -1,0 +1,656 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
+<link href="https://unpkg.com/vis-timeline/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+
+<style>
+    /* --- CHAT STYLING --- */
+    #chat-container { display: flex; flex-direction: row; height: 70vh; border: 1px solid #dee2e6; border-radius: 0.375rem; overflow: hidden; }
+    #user-sidebar { flex: 0 0 200px; background-color: #f7f3f0; border-right: 1px solid #dee2e6; padding: 1rem; overflow-y: auto; }
+    #chat-main { flex-grow: 1; display: flex; flex-direction: column; height: 100%; position: relative; background-image: url("{{ url_for('static', filename='img/background-chat.jpg') }}"); background-size: cover; }
+    #messages { flex-grow: 1; overflow-y: scroll; padding: 1rem; background-color: rgba(255, 255, 255, 0.75); }
+    .message-bubble { max-width: 75%; padding: 0.5rem 1rem; margin-bottom: 0.5rem; border-radius: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
+    .message-self { align-self: flex-end; background-color: #007bff; color: white; }
+    .message-other { align-self: flex-start; background-color: white; border: 1px solid #f0f0f0; }
+    .message-info { font-size: 0.75rem; color: #6c757d; margin-bottom: 0.25rem; }
+    
+    /* --- TAB STYLING --- */
+    .nav-tabs .nav-link.active { background-color: #f8f9fa; border-bottom-color: transparent; font-weight: bold; }
+
+    /* --- TIMELINE STYLING --- */
+    #visual-timeline { height: 400px; border: 1px solid #dee2e6; background-color: #f8f9fa; }
+    .vis-item { border-color: #17a2b8; background-color: #17a2b8; color: white; font-size: 14px; border-radius: 4px; }
+    .vis-item.vis-selected { border-color: #117a8b; background-color: #138496; color: white; }
+    .vis-current-time { background-color: #dc3545; width: 2px; }
+
+    /* --- STAR RATING --- */
+    .star-rating { font-size: 1.5rem; color: #ffc107; cursor: pointer; }
+    .star-rating .bi-star { color: #ddd; }
+    .star-rating .bi-star-fill { color: #ffc107; }
+
+    /* --- MAP PICKER STYLING --- */
+    #picker-map { width: 100%; height: 400px; border-radius: 0.25rem; }
+</style>
+
+<div class="container-fluid mt-2">
+    <div class="d-flex justify-content-between align-items-center mb-2">
+        <h3>
+            <i class="bi bi-geo-alt-fill text-primary"></i> {{ room.name }} 
+            <small class="text-muted fs-6">{{ room.description }}</small>
+        </h3>
+        
+        <div class="d-flex gap-2">
+            <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#inviteModal">
+                <i class="bi bi-person-plus-fill"></i> Invite
+            </button>
+        
+            <div class="dropdown">
+                <button class="btn btn-sm btn-outline-secondary rounded-pill dropdown-toggle" type="button" data-bs-toggle="dropdown">
+                    <i class="bi bi-gear-fill"></i> Settings
+                </button>
+                <ul class="dropdown-menu dropdown-menu-end">
+                    {% if current_user.id == room.creator_id %}
+                        <li>
+                            <form action="{{ url_for('chat.delete_chat_room', room_id=room.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to PERMANENTLY delete this room?');">
+                                <button class="dropdown-item text-danger"><i class="bi bi-trash"></i> Delete Room</button>
+                            </form>
+                        </li>
+                    {% else %}
+                        <li>
+                            <form action="{{ url_for('chat.leave_chat_room', room_id=room.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to leave this group?');">
+                                <button class="dropdown-item text-warning"><i class="bi bi-box-arrow-right"></i> Leave Group</button>
+                            </form>
+                        </li>
+                    {% endif %}
+                </ul>
+            </div>
+        </div>
+    </div>
+        
+        {% if room.creator == current_user and pending_requests %}
+        <div class="alert alert-warning shadow-sm">
+            <h5 class="alert-heading"><i class="bi bi-exclamation-circle-fill"></i> Invitation Requests</h5>
+            <p class="small text-muted mb-2">
+                Members want to invite friends. 
+                <strong>Approve</strong> to forward the invitation to the user (User must still accept).
+            </p>
+            <hr class="my-2">
+            <div class="list-group">
+                {% for req in pending_requests %}
+                <div class="list-group-item d-flex justify-content-between align-items-center bg-white border-0 mb-1 rounded">
+                    <div>
+                        <i class="bi bi-person-plus"></i>
+                        <strong>{{ req.inviter.username }}</strong> wants to invite <strong>{{ req.user.username }}</strong>
+                    </div>
+                    <div>
+                        <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='accept') }}" method="POST">
+                            <button class="btn btn-sm btn-success me-1" title="Approve & Send Invite"><i class="bi bi-check-lg"></i> Approve</button>
+                        </form>
+                        <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='reject') }}" method="POST">
+                            <button class="btn btn-sm btn-danger" title="Reject"><i class="bi bi-x-lg"></i></button>
+                        </form>
+                    </div>
+                </div>
+                {% endfor %}
+            </div>
+        </div>
+        {% endif %}
+        
+        <div>
+            {% if room.is_private %}
+                <span class="badge bg-secondary"><i class="bi bi-lock-fill"></i> Private</span>
+            {% else %}
+                <span class="badge bg-success"><i class="bi bi-globe"></i> Public</span>
+            {% endif %}
+        </div>
+    </div>
+
+    <ul class="nav nav-tabs" id="roomTabs" role="tablist">
+        <li class="nav-item">
+            <button class="nav-link active" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat-panel" type="button" role="tab">
+                <i class="bi bi-chat-dots"></i> Chat
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="planner-tab" data-bs-toggle="tab" data-bs-target="#planner-panel" type="button" role="tab">
+                <i class="bi bi-calendar-check"></i> Planner
+            </button>
+        </li>
+        <li class="nav-item">
+            <button class="nav-link" id="finance-tab" data-bs-toggle="tab" data-bs-target="#finance-panel" type="button" role="tab">
+                <i class="bi bi-cash-coin"></i> Finance
+            </button>
+        </li>
+    </ul>
+
+    <div class="tab-content border border-top-0 p-3 bg-white shadow-sm" id="roomTabsContent" style="min-height: 75vh;">
+        
+        <div class="tab-pane fade show active" id="chat-panel" role="tabpanel">
+            <div id="chat-container">
+                <div id="user-sidebar">
+                    <h6 class="mb-3">Members (<span id="user-count">0</span>)</h6>
+                    <div id="user-list-container">
+                        </div>
+                </div>
+                <div id="chat-main">
+                    <div id="messages" class="d-flex flex-column"></div>
+                    <div id="typing-status" class="small text-muted px-3 py-1 bg-light"></div>
+                    <div id="emoji-picker" style="display:none; position: absolute; bottom: 60px; right: 10px; z-index: 100;">
+                        <emoji-picker></emoji-picker>
+                    </div>
+                    <div class="p-2 bg-light border-top">
+                        <form id="chat-form">
+                            <div class="input-group">
+                                <input type="text" class="form-control" id="message-input" placeholder="Message..." autocomplete="off">
+                                <button class="btn btn-outline-secondary" type="button" id="emoji-btn">😊</button>
+                                <button class="btn btn-primary" type="submit">Send</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="tab-pane fade" id="planner-panel" role="tabpanel">
+            <div class="row">
+                <div class="col-md-7">
+                    <div class="card h-100">
+                        <div class="card-header bg-info text-white">Itinerary</div>
+                        <div class="card-body bg-light overflow-auto" style="max-height: 65vh;">
+                            {% for act in activities %}
+                            <div class="card mb-2 shadow-sm">
+                                <div class="card-body p-2">
+                                    <div class="d-flex justify-content-between">
+                                        <h6 class="fw-bold">{{ act.name }}</h6>
+                                        <a href="{{ url_for('planner.delete_activity', id=act.id) }}" class="text-danger small text-decoration-none">Delete</a>
+                                    </div>
+                                    <div class="small text-muted">
+                                        <i class="bi bi-clock"></i> <span class="time-display" data-time="{{ act.start_time }}"></span> - <span class="time-display" data-time="{{ act.end_time }}"></span>
+                                        <br>
+                                        <i class="bi bi-geo-alt"></i> <a href="{{ url_for('map.map_search', query=act.location) }}" target="_blank" class="text-decoration-none">{{ act.location }}</a>
+                                        <br>
+                                        <i class="bi bi-cash"></i> {{ "{:,.0f}".format(act.price) }} VND
+                                        <span class="ms-2 text-warning">
+                                            {% set r = act.rating|int %}
+                                            {% for i in range(r) %}<i class="bi bi-star-fill"></i>{% endfor %}
+                                            {% for i in range(5 - r) %}<i class="bi bi-star"></i>{% endfor %}
+                                        </span>
+                                    </div>
+                                    {% if conflicts.get(act.id) %}
+                                        <div class="mt-1">
+                                            {% for err in conflicts[act.id] %}
+                                                <span class="badge bg-{{ 'danger' if err.level=='critical' else 'warning text-dark' }}">{{ err.msg }}</span>
+                                            {% endfor %}
+                                        </div>
+                                    {% endif %}
+                                </div>
+                            </div>
+                            {% else %}
+                                <p class="text-muted text-center mt-4">No activities planned yet.</p>
+                            {% endfor %}
+                            <hr>
+                            <h6>Add Activity</h6>
+                            <form action="{{ url_for('planner.add_room_activity', room_id=room.id) }}" method="POST">
+                                {{ act_form.hidden_tag() }}
+                                <div class="row g-2">
+                                    <div class="col-6">{{ act_form.name(class="form-control form-control-sm", placeholder="Name") }}</div>
+                                    <div class="col-6">
+                                        <div class="input-group input-group-sm">
+                                            {{ act_form.price(class="form-control", placeholder="Price") }}
+                                            <span class="input-group-text">VND</span>
+                                        </div>
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="small text-muted mb-0">Rating</label>
+                                        <div class="star-rating" id="star-rating-widget">
+                                            <i class="bi bi-star" data-value="1"></i><i class="bi bi-star" data-value="2"></i><i class="bi bi-star" data-value="3"></i><i class="bi bi-star" data-value="4"></i><i class="bi bi-star" data-value="5"></i>
+                                        </div>
+                                        {{ act_form.rating(type="hidden", id="rating-input", value="0") }}
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="small text-muted mb-0">Start</label>
+                                        {{ act_form.start_time(class="form-control form-control-sm flatpickr-input", id="start-picker", type="text", placeholder="Select Date & Time") }}
+                                    </div>
+                                    <div class="col-6">
+                                        <label class="small text-muted mb-0">End</label>
+                                        {{ act_form.end_time(class="form-control form-control-sm flatpickr-input", id="end-picker", type="text", placeholder="Select Date & Time") }}
+                                    </div>
+                                    <div class="col-12">
+                                        <label class="small text-muted mb-0">Location</label>
+                                        <div class="input-group input-group-sm">
+                                            {{ act_form.location(class="form-control", id="location-input", placeholder="Type or pick on map") }}
+                                            <button class="btn btn-outline-secondary" type="button" data-bs-toggle="modal" data-bs-target="#mapModal" onclick="initPickerMap()">
+                                                <i class="bi bi-map"></i> Pick
+                                            </button>
+                                        </div>
+                                    </div>
+                                    <div class="col-12 mt-2">{{ act_form.submit(class="btn btn-sm btn-info w-100 text-white") }}</div>
+                                </div>
+                            </form>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="col-md-5">
+                    <div class="card">
+                        <div class="card-header text-white" style="background-color: #ff6b6b; border-bottom: none;">My Constraints</div>
+                        <div class="card-body">
+                            {% for cons in constraints %}
+                            <div class="alert alert-light border d-flex justify-content-between py-1 px-2 mb-1">
+                                <small><strong>{{ cons.type|upper }}</strong>: {{ cons.value }} ({{ cons.intensity }})</small>
+                                <a href="{{ url_for('planner.delete_constraint', id=cons.id) }}" class="text-muted">x</a>
+                            </div>
+                            {% endfor %}
+                            <div class="mt-3"></div> 
+                            <h6>Add Constraint</h6>
+                            <form action="{{ url_for('planner.add_room_constraint', room_id=room.id) }}" method="POST">
+                                {{ cons_form.hidden_tag() }}
+                                <div class="mb-2">
+                                    <label class="small text-muted">Type</label>
+                                    {{ cons_form.type(class="form-select form-select-sm") }}
+                                </div>
+                                <div class="mb-2">
+                                    <label class="small text-muted">Limit Value</label>
+                                    {{ cons_form.value(class="form-control form-control-sm", placeholder="e.g. 50 (for price) or 09:00") }}
+                                </div>
+                                <div class="mb-3">
+                                    <label class="small text-muted d-block">Intensity</label>
+                                    {% for subfield in cons_form.intensity %}
+                                    <div class="form-check form-check-inline small">
+                                        {{ subfield(class="form-check-input") }} 
+                                        {{ subfield.label(class="form-check-label") }}
+                                    </div>
+                                    {% endfor %}
+                                </div>
+                                {{ cons_form.submit(class="btn btn-sm btn-secondary w-100") }}
+                            </form>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <script id="timeline-data-json" type="application/json">{{ timeline_data | tojson | safe }}</script>
+            <div class="d-flex justify-content-between mt-3 mb-1">
+                <h5 class="mb-0">Timeline</h5>
+                <div class="btn-group btn-group-sm">
+                    <button class="btn btn-outline-secondary" onclick="setTimelineView('day')">Day</button>
+                    <button class="btn btn-outline-secondary" onclick="setTimelineView('week')">Week</button>
+                    <button class="btn btn-outline-secondary" onclick="setTimelineView('month')">Month</button>
+                </div>
+            </div>
+            <div id="visual-timeline"></div>
+        </div>
+
+        <div class="tab-pane fade" id="finance-panel" role="tabpanel">
+            <div class="row">
+                <div class="col-md-4">
+                    <div class="card mb-3">
+                        <div class="card-header bg-success text-white">New Transaction</div>
+                        <div class="card-body">
+                            <form action="{{ url_for('finance.add_room_transaction', room_id=room.id) }}" method="POST">
+                                {{ trans_form.hidden_tag() }}
+                                <div class="mb-3">
+                                    <label class="form-label small fw-bold">Type</label>
+                                    {% for subfield in trans_form.type %}
+                                        <div class="form-check">
+                                            {{ subfield(class="form-check-input") }} 
+                                            {{ subfield.label(class="form-check-label small") }}
+                                        </div>
+                                    {% endfor %}
+                                </div>
+                                <div class="mb-2">
+                                    <div class="input-group input-group-sm">
+                                        {{ trans_form.amount(class="form-control", placeholder="Amount") }}
+                                        <span class="input-group-text">VND</span>
+                                    </div>
+                                </div>
+                                <div class="mb-2">{{ trans_form.description(class="form-control form-control-sm", placeholder="Description") }}</div>
+                                <div class="form-check form-switch mb-2">
+                                    {{ trans_form.is_outside(class="form-check-input", id="switchOutside") }}
+                                    <label class="form-check-label small" for="switchOutside">Is Stranger?</label>
+                                </div>
+                                <div id="memberInput" class="mb-2">{{ trans_form.receiver(class="form-select form-select-sm") }}</div>
+                                <div id="outsiderInput" class="mb-2" style="display:none;">{{ trans_form.outsider_name(class="form-control form-control-sm", placeholder="Stranger Name") }}</div>
+                                {{ trans_form.submit(class="btn btn-success btn-sm w-100") }}
+                            </form>
+                        </div>
+                    </div>
+                    {% if pending_trans %}
+                    <div class="alert alert-warning p-2">
+                        <h6 class="alert-heading h6">Need Confirmation</h6>
+                        <ul class="list-unstyled mb-0 small">
+                        {% for p in pending_trans %}
+                            <li class="border-bottom py-1">
+                                <strong>{{ p.sender.username }}</strong>: {{ "{:,.0f}".format(p.amount) }} VND
+                                <form action="{{ url_for('finance.confirm_transaction', trans_id=p.id) }}" method="POST" class="d-inline float-end">
+                                    <button class="btn btn-xs btn-outline-dark py-0 px-1">Confirm</button>
+                                </form>
+                            </li>
+                        {% endfor %}
+                        </ul>
+                    </div>
+                    {% endif %}
+                </div>
+                <div class="col-md-8">
+                    <div class="card h-100 shadow-sm">
+                        <div class="card-header d-flex justify-content-between">
+                            <span>Debt Network</span>
+                            <button onclick="loadGraph()" class="btn btn-sm btn-outline-primary">Refresh</button>
+                        </div>
+                        <div class="card-body p-0">
+                            <div id="finance-network" style="height: 500px; width: 100%;"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="mapModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Pick Location</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <p class="small text-muted">Click anywhere on the map to drop a pin.</p>
+                <div id="picker-map"></div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="inviteModal" tabindex="-1" aria-hidden="true">
+    <div class="modal-dialog">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title">Invite Friends to {{ room.name }}</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form action="{{ url_for('chat.invite_to_room', room_id=room.id) }}" method="POST">
+                <div class="modal-body">
+                    <p class="small text-muted">Select friends to add to this trip:</p>
+                    <div class="list-group" style="max-height: 300px; overflow-y: auto;">
+                        {% if invitable_friends %}
+                            {% for friend in invitable_friends %}
+                                <label class="list-group-item d-flex gap-3">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" name="friend_ids" value="{{ friend.id }}">
+                                    <span class="pt-1 form-checked-content">
+                                        <strong>{{ friend.username }}</strong>
+                                        <small class="d-block text-muted">{{ friend.email }}</small>
+                                    </span>
+                                </label>
+                            {% endfor %}
+                        {% else %}
+                            <div class="text-center text-muted py-3">
+                                <i class="bi bi-people display-6"></i>
+                                <p class="mt-2">No friends available to invite.<br>(Or all your friends are already here!)</p>
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    {% if invitable_friends %}
+                        <button type="submit" class="btn btn-primary">Send Invites</button>
+                    {% endif %}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
+    
+    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
+    <script>
+        // --- FIX: Save Vis Network to a separate variable before Timeline overwrites it ---
+        const VisNetwork = vis.Network;
+        const VisDataSet = vis.DataSet; // Save DataSet too
+    </script>
+
+    <script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
+    
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+
+    <script type="text/javascript">
+        // --- RESTORE VIS NETWORK ---
+        // Ensure vis.Network is available even if Timeline wiped it
+        if (!vis.Network) {
+            vis.Network = VisNetwork;
+        }
+        if (!vis.DataSet && VisDataSet) {
+            vis.DataSet = VisDataSet;
+        }
+
+        // --- 1. FLATPICKR ---
+        flatpickr(".flatpickr-input", {
+            enableTime: true, dateFormat: "Y-m-d H:i", time_24hr: true, altInput: true, altFormat: "F j, Y H:i"
+        });
+
+        // --- 2. STAR RATING ---
+        const stars = document.querySelectorAll('#star-rating-widget i');
+        const ratingInput = document.getElementById('rating-input');
+        stars.forEach(star => {
+            star.addEventListener('click', function() {
+                const value = this.getAttribute('data-value'); ratingInput.value = value; updateStars(value);
+            });
+            star.addEventListener('mouseover', function() { updateStars(this.getAttribute('data-value')); });
+        });
+        document.getElementById('star-rating-widget').addEventListener('mouseleave', function() { updateStars(ratingInput.value); });
+        function updateStars(val) {
+            stars.forEach(s => {
+                if (s.getAttribute('data-value') <= val) { s.classList.remove('bi-star'); s.classList.add('bi-star-fill'); } 
+                else { s.classList.remove('bi-star-fill'); s.classList.add('bi-star'); }
+            });
+        }
+
+        // --- 3. LEAFLET MAP PICKER ---
+        let pickerMap;
+        let pickerMarker;
+        function initPickerMap() {
+            setTimeout(() => {
+                if (!pickerMap) {
+                    pickerMap = L.map('picker-map').setView([10.762622, 106.660172], 13);
+                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(pickerMap);
+                    pickerMap.on('click', function(e) {
+                        const lat = e.latlng.lat; const lng = e.latlng.lng;
+                        if (pickerMarker) { pickerMap.removeLayer(pickerMarker); }
+                        pickerMarker = L.marker([lat, lng]).addTo(pickerMap);
+                        document.getElementById('location-input').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
+                    });
+                }
+                pickerMap.invalidateSize();
+            }, 300);
+        }
+
+        // --- 4. VIS.JS TIMELINE ---
+        let timeline;
+        function initTimeline() {
+            const container = document.getElementById('visual-timeline');
+            const dataScript = document.getElementById('timeline-data-json');
+            let activities = [];
+            if (dataScript && dataScript.textContent) { activities = JSON.parse(dataScript.textContent); }
+
+            const items = new vis.DataSet();
+            activities.forEach((act, index) => {
+                if(act.start && act.end) {
+                    const safeStart = act.start.replace('T', ' ');
+                    const safeEnd = act.end.replace('T', ' ');
+                    items.add({ id: index, content: act.name, start: safeStart, end: safeEnd, title: `${act.name}: ${safeStart} - ${safeEnd}` });
+                }
+            });
+
+            const options = { height: '100%', stack: true, zoomMin: 1000 * 60 * 60, zoomMax: 1000 * 60 * 60 * 24 * 365, horizontalScroll: true, verticalScroll: true, showCurrentTime: true };
+            timeline = new vis.Timeline(container, items, options);
+        }
+        function setTimelineView(view) {
+            if(!timeline) return;
+            const now = new Date();
+            let start, end;
+            if (view === 'day') { start = new Date(now.setHours(0,0,0,0)); end = new Date(now.setHours(23,59,59,999)); } 
+            else if (view === 'week') { const day = now.getDay(); const diff = now.getDate() - day + (day == 0 ? -6:1); start = new Date(now.setDate(diff)); end = new Date(now.setDate(diff + 6)); } 
+            else if (view === 'month') { start = new Date(now.getFullYear(), now.getMonth(), 1); end = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
+            timeline.setWindow(start, end);
+        }
+        document.addEventListener('DOMContentLoaded', () => { initTimeline(); });
+
+        // --- 5. FINANCE GRAPH ---
+        const switchOutside = document.getElementById('switchOutside');
+        const memberInput = document.getElementById('memberInput');
+        const outsiderInput = document.getElementById('outsiderInput');
+        if (switchOutside) {
+            switchOutside.addEventListener('change', function() {
+                if(this.checked) { memberInput.style.display = 'none'; outsiderInput.style.display = 'block'; } 
+                else { memberInput.style.display = 'block'; outsiderInput.style.display = 'none'; }
+            });
+        }
+
+        let networkInstance = null;
+        function loadGraph() {
+            // UPDATED FETCH URL
+            fetch("{{ url_for('finance.api_finance_graph') }}?room_id={{ room.id }}")
+                .then(response => response.json())
+                .then(data => {
+                    var nodes = new vis.DataSet(data.nodes);
+                    var edges = new vis.DataSet(data.edges.map(e => ({
+                        from: e.from, to: e.to, label: e.label, arrows: 'to', color: {color: '#dc3545'}, width: 2
+                    })));
+                    var container = document.getElementById('finance-network');
+                    var dataVis = { nodes: nodes, edges: edges };
+                    var options = {
+                        nodes: { font: { size: 16 }, borderWidth: 2, color: { background: '#fff', border: '#dc3545' } },
+                        physics: { stabilization: false, barnesHut: { gravitationalConstant: -3000 } }
+                    };
+                    
+                    if (networkInstance) {
+                        networkInstance.setData(dataVis); // Update existing to avoid flicker
+                    } else {
+                        networkInstance = new vis.Network(container, dataVis, options);
+                    }
+                });
+        }
+
+        // --- AUTO-LOAD GRAPH ON TAB SWITCH ---
+        // This fixes the 0-height issue when graph loads in hidden tab
+        document.addEventListener('DOMContentLoaded', function() {
+            var financeTabBtn = document.getElementById('finance-tab');
+            financeTabBtn.addEventListener('shown.bs.tab', function (e) {
+                loadGraph();
+            });
+        });
+
+        // --- 6. CHAT LOGIC ---
+        document.addEventListener('DOMContentLoaded', (event) => {
+            var socket = io();
+            const roomName = '{{ room.name }}';
+            const currentUsername = '{{ current_user.username }}';
+            const messageContainer = document.getElementById('messages');
+            const chatForm = document.getElementById('chat-form');
+            const messageInput = document.getElementById('message-input');
+            const userList = document.getElementById('user-list');
+            const userCount = document.getElementById('user-count');
+            const emojiPicker = document.getElementById('emoji-picker');
+            const emojiBtn = document.getElementById('emoji-btn');
+            const typingStatus = document.getElementById('typing-status');
+            let typingTimer;
+
+            function scrollToBottom() { messageContainer.scrollTop = messageContainer.scrollHeight; }
+            function isImageUrl(url) { return(url.match(/\.(jpeg|jpg|gif|png)$/) != null); }
+            function addMessage(data) {
+                let isSelf = data.username === currentUsername;
+                let bubbleClass = isSelf ? 'message-self' : 'message-other';
+                let content = isImageUrl(data.msg) ? `<img src="${data.msg}" style="max-width:100%; border-radius:5px;">` : data.msg;
+                const msgDiv = document.createElement('div');
+                msgDiv.classList.add('message-bubble', bubbleClass);
+                msgDiv.innerHTML = `<div class="message-info text-${isSelf ? 'end text-white-50' : 'start'}"><strong>${isSelf ? 'You' : data.username}</strong> <small>${data.timestamp}</small></div><div>${content}</div>`;
+                messageContainer.appendChild(msgDiv);
+                scrollToBottom();
+            }
+            emojiBtn.addEventListener('click', () => { emojiPicker.style.display = (emojiPicker.style.display === 'none') ? 'block' : 'none'; });
+            emojiPicker.addEventListener('emoji-click', e => { messageInput.value += e.detail.unicode; });
+            messageInput.addEventListener('input', () => {
+                clearTimeout(typingTimer); socket.emit('typing', { room: roomName });
+                typingTimer = setTimeout(() => { socket.emit('stopped_typing', { room: roomName }); }, 2000);
+            });
+            socket.on('typing_status', (data) => { typingStatus.textContent = data.isTyping ? `${data.username} is typing...` : ''; });
+            socket.on('connect', () => socket.emit('join', { 'room': roomName }));
+            socket.on('load_history', msgs => { messageContainer.innerHTML=''; msgs.forEach(addMessage); });
+            socket.on('receive_message', data => { addMessage(data); typingStatus.textContent = ''; });
+            socket.on('status', data => { const div = document.createElement('div'); div.className = 'text-center small text-muted my-1'; div.innerHTML = `<em>${data.msg}</em>`; messageContainer.appendChild(div); });
+            socket.on('user_list', data => {
+                const container = document.getElementById('user-list-container');
+                const userCount = document.getElementById('user-count');
+                        
+                // Cập nhật tổng số thành viên
+                if (data.total_count) userCount.textContent = data.total_count;
+                else userCount.textContent = data.online.length + data.offline.length; // Fallback
+                        
+                container.innerHTML = ''; // Xóa cũ
+                        
+                // Helper tạo list
+                const createList = (title, users, isOnline) => {
+                    if (users.length === 0) return;
+                    
+                    const label = document.createElement('small');
+                    label.className = 'text-muted fw-bold text-uppercase mt-2 d-block';
+                    label.style.fontSize = '0.7rem';
+                    label.innerText = title;
+                    container.appendChild(label);
+                
+                    const ul = document.createElement('ul');
+                    ul.className = 'list-group list-group-flush small mb-2';
+                    
+                    users.forEach(u => {
+                        const li = document.createElement('li');
+                        li.className = 'list-group-item px-0 py-1 bg-transparent border-0';
+                        
+                        // Màu dot: Xanh nếu online, Xám nếu offline
+                        const color = isOnline ? '#28a745' : '#6c757d'; 
+                        
+                        li.innerHTML = `
+                            <span style="height:8px;width:8px;background:${color};border-radius:50%;display:inline-block;margin-right:6px;"></span>
+                            <span class="${!isOnline ? 'text-muted' : ''}">${u}</span>
+                        `;
+                        ul.appendChild(li);
+                    });
+                    container.appendChild(ul);
+                };
+            
+                // Render 2 nhóm
+                createList('Online', data.online, true);
+                createList('Offline', data.offline, false);
+            });
+            chatForm.addEventListener('submit', e => {
+                e.preventDefault(); let msg = messageInput.value.trim();
+                if (msg) { socket.emit('send_message', { 'msg': msg, 'room': roomName }); clearTimeout(typingTimer); socket.emit('stopped_typing', { room: roomName }); messageInput.value = ''; emojiPicker.style.display = 'none'; }
+            });
+            window.addEventListener('beforeunload', () => socket.emit('leave', { 'room': roomName }));
+        });
+
+        // Filter Constraint Type to show only 'Price'
+        document.addEventListener('DOMContentLoaded', function() {
+            const typeSelect = document.querySelector('select[name="type"]');
+            if (typeSelect) {
+                for (let i = typeSelect.options.length - 1; i >= 0; i--) {
+                    if (typeSelect.options[i].value.toLowerCase() !== 'price') { typeSelect.remove(i); }
+                }
+                if (typeSelect.options.length > 0) { typeSelect.selectedIndex = 0; }
+            }
+        });
+    </script>
+{% endblock %}

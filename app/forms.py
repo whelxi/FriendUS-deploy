@@ -1,0 +1,162 @@
+from flask_wtf import FlaskForm
+from flask_wtf.file import FileField, FileAllowed
+from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextAreaField, FloatField, SelectField, RadioField, SelectMultipleField
+from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, Optional
+from flask_login import current_user
+from app.models import User, Room
+
+# --- DANH SÁCH TAGS ---
+GROUP_HANGOUT_TAGS = [
+    "Eating", "Coffee", "Gaming", "Study", "Travel", 
+    "Music", "Movie", "Sports", "Shopping", "Camping",
+    "Billiards", "Karaoke", "Photography", "Just Chatting"
+]
+# Tạo list choices
+TAG_CHOICES = [(tag, tag) for tag in GROUP_HANGOUT_TAGS]
+
+class OnboardingForm(FlaskForm):
+    # Dùng SelectMultipleField để chọn nhiều tag
+    interests = SelectMultipleField('Choose your interests (1-5 tags)', choices=TAG_CHOICES)
+    submit = SubmitField('Get Started')
+
+    def validate_interests(self, interests):
+        # Kiểm tra rỗng
+        if not interests.data or len(interests.data) == 0:
+            raise ValidationError('Please select at least one interest to continue.')
+        # Kiểm tra tối đa 5
+        if len(interests.data) > 5:
+            raise ValidationError('You can only select up to 5 interests.')
+
+class RegisterForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])
+    password = PasswordField('Password', validators=[DataRequired()])
+    confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
+    
+    # [UPDATED] Bắt buộc chọn sở thích khi đăng ký
+    interests = SelectMultipleField('Interests', choices=TAG_CHOICES) 
+    
+    submit = SubmitField('Sign Up')
+
+    def validate_username(self, username):
+        user = User.query.filter_by(username=username.data).first()
+        if user:
+            raise ValidationError('That username is taken. Please choose another.')
+
+    # [NEW] Validator bắt buộc chọn ít nhất 1 interest
+    def validate_interests(self, interests):
+        if not interests.data or len(interests.data) == 0:
+            raise ValidationError('Please select at least one interest.')
+
+class LoginForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])
+    password = PasswordField('Password', validators=[DataRequired()])
+    remember = BooleanField('Remember Me')
+    submit = SubmitField('Login')
+
+class PostForm(FlaskForm):
+    body = TextAreaField('What\'s on your mind?', validators=[DataRequired(), Length(min=1, max=1000)])
+    media = FileField('Upload Image/Video', validators=[
+        FileAllowed(['jpg', 'png', 'jpeg', 'gif', 'mp4', 'mov', 'avi'], 'Images and Videos only!')
+    ])
+    
+    # [UPDATED] Bắt buộc chọn Tag cho bài viết
+    tags = SelectMultipleField('Tags', choices=TAG_CHOICES)
+    
+    submit = SubmitField('Post')
+
+    # [NEW] Validator bắt buộc chọn ít nhất 1 tag
+    def validate_tags(self, tags):
+        if not tags.data or len(tags.data) == 0:
+            raise ValidationError('Please select at least one tag for your post.')
+
+class UpdateAccountForm(FlaskForm):
+    username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])
+    email = StringField('Email', validators=[DataRequired(), Email()])
+    picture = FileField('Update Profile Picture', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
+    
+    # [UPDATED] Bắt buộc chọn sở thích khi update
+    interests = SelectMultipleField('Update Interests', choices=TAG_CHOICES)
+    
+    submit = SubmitField('Update Account')
+
+    def validate_username(self, username):
+        if username.data != current_user.username:
+            user = User.query.filter_by(username=username.data).first()
+            if user:
+                raise ValidationError('That username is taken. Please choose another.')
+
+    def validate_email(self, email):
+        if email.data != current_user.email:
+            user = User.query.filter_by(email=email.data).first()
+            if user:
+                raise ValidationError('That email is already in use.')
+
+    # [NEW] Validator bắt buộc chọn ít nhất 1 interest
+    def validate_interests(self, interests):
+        if not interests.data or len(interests.data) == 0:
+            raise ValidationError('Please select at least one interest.')
+
+# --- CÁC FORM CŨ ---
+
+class ReviewForm(FlaskForm):
+    rating = SelectField('Rating', 
+                         choices=[('5', '5 Stars'), ('4', '4 Stars'), ('3', '3 Stars'), ('2', '2 Stars'), ('1', '1 Star')], 
+                         validators=[DataRequired()])
+    body = TextAreaField('Your Review', validators=[DataRequired(), Length(min=10)])
+    submit = SubmitField('Submit Review')
+
+class CreateRoomForm(FlaskForm):
+    name = StringField('Room Name', 
+                         validators=[DataRequired(), Length(min=3, max=50)])
+    description = TextAreaField('Description', 
+                                validators=[Optional(), Length(max=200)])
+    
+    privacy = RadioField('Privacy Setting', 
+                         choices=[('public', 'Public (Anyone can join)'), 
+                                  ('private', 'Private (Invite only)')],
+                         default='public',
+                         validators=[DataRequired()])
+    
+    # [UPDATED] Bắt buộc chọn tags
+    tags = SelectMultipleField('Tags (Max 5)', choices=TAG_CHOICES)
+
+    submit = SubmitField('Create Room')
+
+    def validate_name(self, name):
+        room = Room.query.filter_by(name=name.data).first()
+        if room:
+            raise ValidationError('That room name is taken. Please choose another.')
+
+    # [UPDATED] Validate vừa bắt buộc chọn, vừa giới hạn max 5
+    def validate_tags(self, tags):
+        if not tags.data or len(tags.data) == 0:
+            raise ValidationError('Please select at least one tag for the room.')
+        if len(tags.data) > 5:
+            raise ValidationError('You can only select up to 5 tags.')
+
+class TransactionForm(FlaskForm):
+    amount = FloatField('Amount (VNĐ)', validators=[DataRequired()])
+    description = StringField('Description', validators=[DataRequired()])
+    type = RadioField('Transaction Type', choices=[
+        ('debt', 'I Owe them (Ghi nợ)'), 
+        ('repayment', 'I Paid them (Trả nợ)')
+    ], default='debt', validators=[DataRequired()])
+    receiver = SelectField('Receiver (Member)', choices=[], coerce=int, validators=[Optional()])
+    is_outside = BooleanField('Outside/Stranger?')
+    outsider_name = StringField('Outsider Name')
+    submit = SubmitField('Create Transaction')
+
+class ActivityForm(FlaskForm):
+    name = StringField('Activity Name', validators=[DataRequired()])
+    location = StringField('Location')
+    price = FloatField('Est. Price ($)', validators=[DataRequired()])
+    start_time = StringField('Start Time (e.g. 09:00)') 
+    end_time = StringField('End Time (e.g. 11:00)')
+    rating = FloatField('Initial Rating (1-5)', validators=[Optional()])
+    submit = SubmitField('Add Activity')
+
+class ConstraintForm(FlaskForm):
+    type = SelectField('Type', choices=[('price', 'Price'), ('time', 'Time'), ('location', 'Location')])
+    intensity = RadioField('Intensity', choices=[('soft', 'Soft (!)'), ('rough', 'Rough (!!) - Hard Rule')], default='soft')
+    value = StringField('Value (e.g. 25 for price, 08:00 for time)', validators=[DataRequired()])
+    submit = SubmitField('Add Constraint')

@@ -1,0 +1,77 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="d-flex align-items-center justify-content-center" style="min-height: 80vh;">
+    <div class="card shadow-lg border-0" style="width: 100%; max-width: 700px; border-radius: 20px;">
+        <div class="card-body p-5 text-center">
+            
+            <h2 class="card-title mb-3 fw-bold text-primary">Let's get to know you!</h2>
+            <p class="card-text text-muted mb-4">
+                Chọn ít nhất 1 chủ đề bạn quan tâm để chúng tôi gợi ý bạn bè và địa điểm phù hợp nhé.
+            </p>
+
+            <form method="POST" action="{{ url_for('auth.onboarding') }}" id="onboardingForm">
+                <input type="hidden" name="interests" id="selectedInterestsInput">
+                
+                <div class="d-flex flex-wrap justify-content-center gap-2 mb-5" id="tagsContainer">
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Travel">Travel ✈️</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Food">Food 🍜</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Music">Music 🎵</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Sports">Sports ⚽</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Technology">Technology 💻</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Cafe">Cafe ☕</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Movies">Movies 🎬</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Reading">Reading 📚</button>
+                    <button type="button" class="btn btn-outline-secondary rounded-pill px-4 py-2 interest-tag" data-value="Gaming">Gaming 🎮</button>
+                </div>
+
+                <div class="d-grid gap-2 col-6 mx-auto">
+                    <button type="submit" class="btn btn-primary btn-lg rounded-pill shadow-sm">
+                        Finish Setup
+                    </button>
+                </div>
+            </form>
+            
+            <div class="mt-4 pt-3 border-top">
+                <small class="text-muted">Muốn dùng tài khoản khác? <a href="{{ url_for('auth.logout') }}">Logout</a></small>
+            </div>
+        </div>
+    </div>
+</div>
+
+<script>
+document.addEventListener('DOMContentLoaded', function() {
+    const buttons = document.querySelectorAll('.interest-tag');
+    const hiddenInput = document.getElementById('selectedInterestsInput');
+    let selectedTags = [];
+
+    buttons.forEach(btn => {
+        btn.addEventListener('click', function() {
+            const value = this.getAttribute('data-value');
+
+            if (this.classList.contains('active')) {
+                // Bỏ chọn: Xóa class active và btn-primary, trả về màu xám
+                this.classList.remove('active', 'btn-primary', 'text-white');
+                this.classList.add('btn-outline-secondary');
+                selectedTags = selectedTags.filter(item => item !== value);
+            } else {
+                // Chọn: Thêm màu xanh
+                this.classList.remove('btn-outline-secondary');
+                this.classList.add('active', 'btn-primary', 'text-white');
+                if (!selectedTags.includes(value)) {
+                    selectedTags.push(value);
+                }
+            }
+            hiddenInput.value = selectedTags.join(',');
+        });
+    });
+    
+    document.getElementById('onboardingForm').addEventListener('submit', function(e) {
+        if (selectedTags.length === 0) {
+            e.preventDefault();
+            alert('Hãy chọn ít nhất 1 sở thích!');
+        }
+    });
+});
+</script>
+{% endblock %}

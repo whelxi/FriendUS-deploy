@@ -1,0 +1,144 @@
+{% extends "layout.html" %}
+
+{% block content %}
+    <div class="p-4 mb-4 bg-light rounded-3">
+        <div class="container-fluid py-5 d-flex align-items-center">
+            <div class="me-4 position-relative">
+                <img class="rounded-circle account-img" 
+                     src="{{ url_for('static', filename='profile_pics/' + user.image_file) }}" 
+                     alt="Profile Pic"
+                     style="width: 120px; height: 120px; object-fit: cover; border: 3px solid #dee2e6;">
+            </div>
+            
+            <div class="flex-grow-1">
+                <div class="d-flex align-items-center flex-wrap">
+    <h1 class="display-5 fw-bold mb-0 me-3">{{ user.username }}</h1>
+    
+    {% if user == current_user %}
+        <button type="button" class="btn btn-outline-secondary btn-sm" data-bs-toggle="modal" data-bs-target="#editProfileModal">
+            <i class="bi bi-pencil-fill"></i> Edit
+        </button>
+    {% elif current_user.is_authenticated %}
+        {% if current_user.is_friend(user) %}
+            <a href="{{ url_for('main.unfriend', user_id=user.id) }}" class="btn btn-danger btn-sm ms-2">
+                <i class="bi bi-person-x-fill"></i> Unfriend
+            </a>
+        {% elif current_user.has_sent_request(user) %}
+            <button class="btn btn-secondary btn-sm ms-2" disabled>Request Sent</button>
+        {% elif current_user.has_received_request(user) %}
+            <a href="{{ url_for('main.friends') }}" class="btn btn-warning btn-sm ms-2">Respond to Request</a>
+        {% else %}
+            <a href="{{ url_for('main.send_friend_request', user_id=user.id) }}" class="btn btn-primary btn-sm ms-2">
+                <i class="bi bi-person-plus-fill"></i> Add Friend
+            </a>
+        {% endif %}
+    {% endif %}
+</div>
+                <p class="fs-4 text-muted mb-2">{{ user.email }}</p>
+                
+                <div class="mb-2">
+                    {% if user.interests %}
+                        {% for interest in user.interests.split(',') %}
+                            {% if interest %}
+                                <span class="badge rounded-pill bg-info text-dark me-1 border border-info">{{ interest }}</span>
+                            {% endif %}
+                        {% endfor %}
+                    {% endif %}
+                </div>
+
+                <small class="text-muted">Joined: Member</small>
+            </div>
+        </div>
+    </div>
+
+    {% if user == current_user %}
+    <div class="modal fade" id="editProfileModal" tabindex="-1" aria-labelledby="editProfileModalLabel" aria-hidden="true">
+        <div class="modal-dialog">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="editProfileModalLabel">Update Profile</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+                </div>
+                <form method="POST" action="" enctype="multipart/form-data">
+                    {{ form.hidden_tag() }}
+                    <div class="modal-body">
+                        
+                        <div class="mb-3">
+                            {{ form.username.label(class="form-label") }}
+                            {{ form.username(class="form-control") }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.email.label(class="form-label") }}
+                            {{ form.email(class="form-control", readonly=True, style="background-color: #e9ecef;") }}
+                        </div>
+
+                        <div class="mb-3">
+                            {{ form.picture.label(class="form-label") }}
+                            {{ form.picture(class="form-control") }}
+                        </div>
+
+                        <div class="mb-3">
+                            <label class="form-label">Interests (Select Max 5)</label>
+                            <div class="d-flex flex-wrap gap-1" id="profile-interests-container">
+                                {% for value, label in form.interests.choices %}
+                                    <input type="checkbox" class="btn-check interest-checkbox" 
+                                           name="interests" id="interest_{{ loop.index }}" value="{{ value }}"
+                                           {% if form.interests.data and value in form.interests.data %}checked{% endif %} 
+                                           autocomplete="off">
+                                    <label class="btn btn-outline-info btn-sm rounded-pill" for="interest_{{ loop.index }}">
+                                        {{ label }}
+                                    </label>
+                                {% endfor %}
+                            </div>
+                        </div>
+
+                    </div>
+                    <div class="modal-footer">
+                        <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                        {{ form.submit(class="btn btn-primary", value="Save Changes") }}
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        document.querySelectorAll('#profile-interests-container .interest-checkbox').forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const checkedCount = document.querySelectorAll('#profile-interests-container .interest-checkbox:checked').length;
+                if (checkedCount > 5) {
+                    this.checked = false; 
+                    alert("You can only select up to 5 interests.");
+                }
+            });
+        });
+    </script>
+    {% endif %}
+
+    <h3>Posts by {{ user.username }}</h3>
+    <hr>
+    {% for post in posts %}
+        <div class="card mb-3">
+            <div class="card-header d-flex align-items-center">
+                <img class="rounded-circle me-2" src="{{ url_for('static', filename='profile_pics/' + post.author.image_file) }}" style="width: 40px; height: 40px; object-fit: cover;">
+                <a href="#" class="fw-bold text-decoration-none text-dark">{{ post.author.username }}</a>
+                <small class="text-muted ms-auto">{{ post.timestamp.strftime('%Y-%m-%d %H:%M') }}</small>
+            </div>
+            <div class="card-body">
+                <div class="card-text">{{ post.body | safe }}</div>
+                {% if post.tags %}
+                    <div class="mt-2">
+                    {% for tag in post.tags.split(',') %}
+                        {% if tag %}
+                            <span class="badge bg-light text-secondary border border-secondary me-1">#{{ tag }}</span>
+                        {% endif %}
+                    {% endfor %}
+                    </div>
+                {% endif %}
+                </div>
+        </div>
+    {% else %}
+        <p class="text-muted">No posts yet.</p>
+    {% endfor %}
+{% endblock %}

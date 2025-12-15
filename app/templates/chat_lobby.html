@@ -1,0 +1,198 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="row mb-4">
+    <div class="col-md-8">
+        <h2 class="mb-3"><i class="bi bi-chat-square-text-fill"></i> Chat Lobby</h2>
+        <p class="text-muted">Join existing rooms or create your own to start planning trips!</p>
+    </div>
+    <div class="col-md-4 text-end">
+        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+            <i class="bi bi-plus-circle"></i> Create New Room
+        </button>
+    </div>
+</div>
+
+<div class="modal fade" id="createRoomModal" tabindex="-1" aria-labelledby="createRoomModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg"> <div class="modal-content">
+            <div class="modal-header">
+                <h5 class="modal-title" id="createRoomModalLabel">Create a New Room</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <form method="POST" action="">
+                {{ form.hidden_tag() }}
+                <div class="modal-body">
+                    <div class="mb-3">
+                        {{ form.name.label(class="form-label fw-bold") }}
+                        {% if form.name.errors %}
+                            {{ form.name(class="form-control is-invalid") }}
+                            <div class="invalid-feedback">
+                                {% for error in form.name.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% else %}
+                            {{ form.name(class="form-control") }}
+                        {% endif %}
+                    </div>
+
+                    <div class="mb-3">
+                        {{ form.description.label(class="form-label fw-bold") }}
+                        {{ form.description(class="form-control", rows="3") }}
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold"><i class="bi bi-shield-lock"></i> Privacy Setting</label>
+                        <div class="d-flex gap-3">
+                            {% for subfield in form.privacy %}
+                                <div class="form-check">
+                                    {{ subfield(class="form-check-input") }}
+                                    {{ subfield.label(class="form-check-label") }}
+                                </div>
+                            {% endfor %}
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="form-label fw-bold small text-muted"><i class="bi bi-tags-fill"></i> Select Tags (Max 5):</label>
+                        <div class="d-flex flex-wrap gap-1" id="room-tags-container">
+                            {% for value, label in form.tags.choices %}
+                                <input type="checkbox" class="btn-check room-tag-checkbox" 
+                                       name="tags" id="tag_room_{{ loop.index }}" value="{{ value }}" autocomplete="off">
+                                <label class="btn btn-outline-primary btn-sm rounded-pill" for="tag_room_{{ loop.index }}">
+                                    {{ label }}
+                                </label>
+                            {% endfor %}
+                        </div>
+                        {% if form.tags.errors %}
+                            <div class="text-danger small mt-1">
+                                {% for error in form.tags.errors %}
+                                    <span>{{ error }}</span>
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    {{ form.submit(class="btn btn-primary") }}
+                </div>
+            </form>
+        </div>
+    </div>
+</div>
+
+{% if my_invitations %}
+<div class="card border-info mb-4 shadow-sm">
+    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
+        <span><i class="bi bi-envelope-paper-heart-fill"></i> <strong>Pending Invitations</strong></span>
+        <span class="badge bg-white text-info">{{ my_invitations|length }}</span>
+    </div>
+    <ul class="list-group list-group-flush">
+        {% for invite in my_invitations %}
+        <li class="list-group-item d-flex justify-content-between align-items-center">
+            <div>
+                <span class="fw-bold text-primary">{{ invite.inviter.username }}</span> 
+                <span class="text-muted">invited you to join trip:</span>
+                <span class="badge bg-secondary ms-1">{{ invite.room.name }}</span>
+            </div>
+            <div>
+                <form class="d-inline" action="{{ url_for('chat.respond_invite', req_id=invite.id, action='accept') }}" method="POST">
+                    <button class="btn btn-success btn-sm fw-bold me-2 shadow-sm">
+                        <i class="bi bi-check-lg"></i> Accept
+                    </button>
+                </form>
+                <form class="d-inline" action="{{ url_for('chat.respond_invite', req_id=invite.id, action='reject') }}" method="POST">
+                    <button class="btn btn-outline-danger btn-sm shadow-sm">
+                        <i class="bi bi-x-lg"></i> Decline
+                    </button>
+                </form>
+            </div>
+        </li>
+        {% endfor %}
+    </ul>
+</div>
+{% endif %}
+
+<ul class="nav nav-tabs mb-4" id="chatTabs" role="tablist">
+  <li class="nav-item">
+    <button class="nav-link active" id="my-rooms-tab" data-bs-toggle="tab" data-bs-target="#my-rooms" type="button">
+        <i class="bi bi-chat-text-fill"></i> Your Rooms
+    </button>
+  </li>
+  <li class="nav-item">
+    <button class="nav-link" id="public-rooms-tab" data-bs-toggle="tab" data-bs-target="#public-rooms" type="button">
+        <i class="bi bi-globe"></i> Explore Public Rooms
+    </button>
+  </li>
+</ul>
+
+<div class="tab-content" id="chatTabsContent">
+  <!-- TAB 1: Phòng của bạn -->
+  <div class="tab-pane fade show active" id="my-rooms" role="tabpanel">
+     <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for room in my_rooms %}
+            <!-- Copy code hiển thị card phòng cũ của bạn vào đây -->
+            <div class="col">
+                <div class="card h-100 shadow-sm border-primary">
+                    <div class="card-body">
+                        <h5 class="card-title">{{ room.name }}</h5>
+                        <a href="{{ url_for('chat.chat_room', room_name=room.name) }}" class="btn btn-primary w-100">Enter Chat</a>
+                    </div>
+                </div>
+            </div>
+        {% else %}
+            <p class="text-muted p-3">You haven't joined any rooms.</p>
+        {% endfor %}
+     </div>
+  </div>
+
+  <!-- TAB 2: Phòng Public -->
+  <div class="tab-pane fade" id="public-rooms" role="tabpanel">
+      <div class="list-group">
+        {% for room in public_rooms %}
+            <div class="list-group-item d-flex justify-content-between align-items-center">
+                <div>
+                    <h5 class="mb-1">{{ room.name }}</h5>
+                    <small>{{ room.description }}</small>
+                    <div class="mt-1">
+                        {% for tag in room.tags.split(',') if tag %}
+                            <span class="badge bg-light text-dark border">{{ tag }}</span>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div>
+                    {% if room.id in pending_room_ids %}
+                        <button class="btn btn-secondary disabled">Pending Approval</button>
+                    {% else %}
+                        <form action="{{ url_for('chat.request_join_room', room_id=room.id) }}" method="POST">
+                            <button type="submit" class="btn btn-success"><i class="bi bi-person-plus-fill"></i> Join Request</button>
+                        </form>
+                    {% endif %}
+                </div>
+            </div>
+        {% else %}
+            <p class="text-muted p-3">No public rooms available to join.</p>
+        {% endfor %}
+      </div>
+  </div>
+</div>
+
+<script>
+    document.addEventListener("DOMContentLoaded", function() {
+        const checkboxes = document.querySelectorAll('#room-tags-container .room-tag-checkbox');
+        
+        checkboxes.forEach(checkbox => {
+            checkbox.addEventListener('change', function() {
+                const checkedCount = document.querySelectorAll('#room-tags-container .room-tag-checkbox:checked').length;
+                if (checkedCount > 5) {
+                    this.checked = false; // Bỏ chọn nếu vượt quá 5
+                    alert("You can only select up to 5 tags for a room.");
+                }
+            });
+        });
+    });
+</script>
+
+{% endblock %}

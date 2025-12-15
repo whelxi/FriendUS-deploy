@@ -1,0 +1,145 @@
+{% extends "layout.html" %}
+
+{% block content %}
+<div class="container mt-4" style="max-width: 800px;">
+    
+    <div class="d-flex justify-content-between align-items-center mb-4">
+        <h2><span class="text-muted">Plan for:</span> {{ room.name }}</h2>
+        <a href="{{ url_for('chat.chat_room', room_name=room.name) }}" class="btn btn-outline-secondary btn-sm">Back to Chat</a>
+    </div>
+
+    <div class="card shadow-sm mb-5 border-primary">
+        <div class="card-header bg-primary text-white d-flex justify-content-between">
+            <strong>Global View</strong>
+            <small>Shared Itinerary</small>
+        </div>
+        <div class="card-body bg-light">
+            
+            {% for act in activities %}
+            <div class="card mb-2 border-0 shadow-sm">
+                <div class="card-body p-2 d-flex align-items-stretch">
+                    
+                    <div class="me-3 border-end pe-3 d-flex align-items-center">
+                        <a href="{{ url_for('planner.delete_activity', id=act.id) }}" class="text-danger fw-bold text-decoration-none">[-]</a>
+                    </div>
+
+                    <div class="flex-grow-1">
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0 fw-bold">{{ act.name }}</h5>
+                            <div class="text-warning">
+                                {{ act.rating }} ★ <span class="text-muted text-small" style="font-size: 0.7em;">(rate here)</span>
+                            </div>
+                        </div>
+
+                        <div class="d-flex gap-3 mt-2 text-muted" style="font-size: 0.9em;">
+                            <div class="border p-1 rounded bg-white">
+                                🕒 {{ act.start_time }} - {{ act.end_time }}
+                            </div>
+                            <div class="border p-1 rounded bg-white">
+                                📍 {{ act.location }}
+                            </div>
+                            <div class="border p-1 rounded bg-white fw-bold text-dark">
+                                💵 ${{ act.price }}
+                            </div>
+                        </div>
+
+                        {% if conflicts.get(act.id) %}
+                            <div class="mt-2">
+                                {% for err in conflicts[act.id] %}
+                                    {% if err.level == 'critical' %}
+                                        <span class="badge bg-danger">!! {{ err.msg }}</span>
+                                    {% else %}
+                                        <span class="badge bg-warning text-dark">! {{ err.msg }}</span>
+                                    {% endif %}
+                                {% endfor %}
+                            </div>
+                        {% endif %}
+                    </div>
+                </div>
+            </div>
+            {% endfor %}
+
+            <button class="btn btn-outline-primary w-100 mt-3 border-dashed" type="button" data-bs-toggle="collapse" data-bs-target="#addActivityBox">
+                [+] (add activity)
+            </button>
+            
+            <div class="collapse mt-3" id="addActivityBox">
+                <div class="card card-body">
+                    <form method="POST">
+                        {{ act_form.hidden_tag() }}
+                        <div class="row g-2">
+                            <div class="col-6">{{ act_form.name(class="form-control form-control-sm", placeholder="Activity Name") }}</div>
+                            <div class="col-3">{{ act_form.price(class="form-control form-control-sm", placeholder="Price") }}</div>
+                            <div class="col-3">{{ act_form.rating(class="form-control form-control-sm", placeholder="Rating") }}</div>
+                            <div class="col-6">{{ act_form.start_time(class="form-control form-control-sm", placeholder="Start Time (09:00)") }}</div>
+                            <div class="col-6">{{ act_form.end_time(class="form-control form-control-sm", placeholder="End Time (11:00)") }}</div>
+                            <div class="col-12">{{ act_form.location(class="form-control form-control-sm", placeholder="Location") }}</div>
+                            <div class="col-12 mt-2">
+                                {{ act_form.submit(class="btn btn-sm btn-primary w-100") }}
+                            </div>
+                        </div>
+                    </form>
+                </div>
+            </div>
+
+        </div>
+    </div>
+
+    <div class="card shadow-sm border-secondary">
+        <div class="card-header bg-secondary text-white">
+            <strong>Personal Constraint View</strong>
+            <small class="float-end">Only visible to you</small>
+        </div>
+        <div class="card-body">
+            
+            {% for cons in constraints %}
+            <div class="d-flex align-items-center mb-2 border rounded p-2 bg-light">
+                <div class="me-3 fw-bold text-uppercase" style="width: 80px; font-size: 0.8em;">
+                    {{ cons.type }} <span class="float-end">→</span>
+                </div>
+                
+                {% if cons.intensity == 'rough' %}
+                    <div class="badge bg-danger me-2 p-2" style="width: 35px;">!!</div>
+                {% else %}
+                    <div class="badge bg-warning text-dark me-2 p-2" style="width: 35px;">!</div>
+                {% endif %}
+
+                <div class="flex-grow-1 font-monospace bg-white border px-2 py-1 rounded">
+                    {{ cons.value }}
+                </div>
+
+                <a href="{{ url_for('planner.delete_constraint', id=cons.id) }}" class="ms-3 text-muted">x</a>
+            </div>
+            {% endfor %}
+
+            <hr>
+            <h6 class="text-muted text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Add New Constraint</h6>
+            <form method="POST">
+                {{ cons_form.hidden_tag() }}
+                <input type="hidden" name="add_constraint" value="1"> 
+
+                <div class="row g-2 align-items-center">
+                    <div class="col-md-3">
+                        {{ cons_form.type(class="form-select form-select-sm") }}
+                    </div>
+                    <div class="col-md-4">
+                         {{ cons_form.value(class="form-control form-control-sm", placeholder="Details (e.g. 25)") }}
+                    </div>
+                    <div class="col-md-5">
+                        <div class="btn-group w-100" role="group">
+                            {% for subfield in cons_form.intensity %}
+                                <input type="radio" class="btn-check" name="{{ subfield.name }}" id="{{ subfield.id }}" value="{{ subfield.data }}" {% if loop.first %}checked{% endif %}>
+                                <label class="btn btn-outline-secondary btn-sm" for="{{ subfield.id }}">{{ subfield.label.text }}</label>
+                            {% endfor %}
+                        </div>
+                    </div>
+                    <div class="col-12 mt-2">
+                        {{ cons_form.submit(class="btn btn-sm btn-dark w-100") }}
+                    </div>
+                </div>
+            </form>
+
+        </div>
+    </div>
+</div>
+{% endblock %}

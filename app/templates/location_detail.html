@@ -1,0 +1,67 @@
+{% extends "layout.html" %}
+{% from 'bootstrap5/form.html' import render_form %}
+
+{% block head %}
+{{ super() }}
+<link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+{% endblock %}
+
+{% block content %}
+    <div class="p-4 mb-4 bg-light rounded-3">
+        <div class="container-fluid py-3">
+            
+            <div class="float-end">
+                {% if is_favorited %}
+                    <form action="{{ url_for('map.remove_favorite', location_id=location.id) }}" method="POST">
+                        <button type="submit" class="btn btn-warning btn-lg">
+                            <i class="bi bi-star-fill"></i> Favorited
+                        </button>
+                    </form>
+                {% else %}
+                    <form action="{{ url_for('map.add_favorite', location_id=location.id) }}" method="POST">
+                        <button type="submit" class="btn btn-outline-warning btn-lg">
+                            <i class="bi bi-star"></i> Save to Favorites
+                        </button>
+                    </form>
+                {% endif %}
+            </div>
+            <h1 class="display-5 fw-bold">{{ location.name }}</h1>
+            <p class="col-md-8 fs-5">{{ location.description }}</p>
+            <hr>
+            <ul class="list-unstyled">
+                <li><strong>Type:</strong> <span class="badge bg-secondary fs-6">{{ location.type or 'N/A' }}</span></li>
+                <li><strong>Price:</strong> <span class="badge bg-success fs-6">{{ '$' * location.price_range if location.price_range else 'N/A' }}</span></li>
+                <li><strong>Hours:</strong> {{ location.hours or 'N/A' }}</li>
+                <li><strong>Phone:</strong> {{ location.phone or 'N/A' }}</li>
+                <li><strong>Website:</strong> <a href="{{ location.website or '#' }}" target="_blank">{{ location.website or 'N/A' }}</a></li>
+            </ul>
+            <a href="{{ url_for('map.map_search', lat=location.latitude, lon=location.longitude) }}" class="btn btn-primary btn-lg">View on Map</a>
+        </div>
+    </div>
+
+    <div class="row">
+        <div class="col-lg-5">
+            <h3>Leave a Review</h3>
+            {{ render_form(form) }}
+        </div>
+
+        <div class="col-lg-7">
+            <h3>Reviews</h3>
+            <hr>
+            {% for review in reviews %}
+                <div class="card mb-3">
+                    <div class="card-body">
+                        <h5 class="card-title text-warning">{{ '★' * review.rating }}{{ '☆' * (5 - review.rating) }}</h5>
+                        <p class="card-text">{{ review.body }}</p>
+                        <small class="text-muted">
+                            By <a href="{{ url_for('auth.profile', username=review.author.username) }}">{{ review.author.username }}</a> 
+                            on {{ review.timestamp.strftime('%Y-%m-%d') }}
+                        </small>
+                    </div>
+                </div>
+            {% else %}
+                <p>No reviews yet. Be the first to leave one!</p>
+            {% endfor %}
+        </div>
+    </div>
+{% endblock %}
