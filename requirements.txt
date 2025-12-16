@@ -30,3 +30,7 @@ google-generativeai
 google-api-core
 grpcio
 protobuf
+
+# ---- Machine Learning / NLP ----
+scikit-learn>=1.4.0
+
