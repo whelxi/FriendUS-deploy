@@ -23,10 +23,10 @@ python-dotenv
 Pillow
 Markdown
 bleach
+PyYAML>=6.0
 
 # ---- Google Generative AI ----
 google-generativeai
+google-api-core
 grpcio
 protobuf
-google-api-core
-scikit-learn
