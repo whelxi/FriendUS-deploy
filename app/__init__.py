@@ -2,16 +2,30 @@ from flask import Flask
 from config import Config
 from app.extensions import db, login_manager, bootstrap, socketio, oauth
 from app.events import register_socketio_events
+# [MỚI 1] Import ProxyFix để fix lỗi form không hoạt động trên Render
+from werkzeug.middleware.proxy_fix import ProxyFix 
 
 def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # [MỚI 2] Cấu hình ProxyFix
+    # Dòng này cực quan trọng để Flask nhận diện đúng HTTPS trên Render
+    # Nếu thiếu dòng này: Form Tags sẽ không lưu được, Link chuyển hướng bị lỗi http/https
+    app.wsgi_app = ProxyFix(
+        app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
+    )
+
     # Initialize Extensions
     db.init_app(app)
     login_manager.init_app(app)
     bootstrap.init_app(app)
-    socketio.init_app(app)
+    
+    # [MỚI 3] Cập nhật init SocketIO
+    # cors_allowed_origins="*": Cho phép kết nối từ mọi nguồn (tránh lỗi 400 Bad Request trên Render)
+    # async_mode='eventlet': Chỉ định rõ worker (khớp với file requirements.txt của bạn)
+    socketio.init_app(app, cors_allowed_origins="*", async_mode='eventlet')
+    
     oauth.init_app(app)
 
     # Register Google Provider
@@ -51,7 +65,10 @@ def create_app(config_class=Config):
     from app.models import User, Room
     @login_manager.user_loader
     def load_user(user_id):
-        return User.query.get(int(user_id))
+        # [MỚI 4] Thêm xử lý lỗi nếu user không tồn tại (tránh crash)
+        if user_id is not None:
+            return User.query.get(int(user_id))
+        return None
 
     # Create DB and Populate if empty
     with app.app_context():

@@ -70,7 +70,7 @@
                                 <span class="fw-bold">{{ "{:,.0f}".format(p.amount) }}</span>
                                 <br><small class="text-muted">{{ p.description }}</small>
                             </div>
-                            <form action="{{ url_for('finance.confirm_transaction', trans_id=p.id) }}" method="POST">
+                            <form action="{{ url_for('confirm_transaction', trans_id=p.id) }}" method="POST">
                                 <button type="submit" class="btn btn-sm btn-outline-success">Confirm</button>
                             </form>
                         </div>
@@ -112,7 +112,7 @@
                                     {{ h.status }}
                                 </span>
                                 {% if h.sender_id == current_user.id and h.status == 'pending' %}
-                                    <form action="{{ url_for('finance.delete_transaction', trans_id=h.id) }}" method="POST" class="mt-1">
+                                    <form action="{{ url_for('delete_transaction', trans_id=h.id) }}" method="POST" class="mt-1">
                                         <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 10px;">Cancel</button>
                                     </form>
                                 {% endif %}
@@ -161,8 +161,7 @@
     }
 
     function loadGraph() {
-        // FIXED FETCH URL
-        fetch('{{ url_for("finance.api_finance_graph") }}')
+        fetch('/api/finance_graph')
             .then(response => response.json())
             .then(data => {
                 var nodes = new vis.DataSet(data.nodes);

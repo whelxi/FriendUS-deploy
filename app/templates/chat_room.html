@@ -77,36 +77,38 @@
         </div>
     </div>
         
-        {% if room.creator == current_user and pending_requests %}
-        <div class="alert alert-warning shadow-sm">
-            <h5 class="alert-heading"><i class="bi bi-exclamation-circle-fill"></i> Invitation Requests</h5>
-            <p class="small text-muted mb-2">
-                Members want to invite friends. 
-                <strong>Approve</strong> to forward the invitation to the user (User must still accept).
-            </p>
-            <hr class="my-2">
-            <div class="list-group">
-                {% for req in pending_requests %}
-                <div class="list-group-item d-flex justify-content-between align-items-center bg-white border-0 mb-1 rounded">
-                    <div>
-                        <i class="bi bi-person-plus"></i>
+    {% if room.creator == current_user and pending_requests %}
+    <div class="alert alert-warning shadow-sm">
+        <h5 class="alert-heading"><i class="bi bi-exclamation-circle-fill"></i> Pending Requests</h5>
+        <p class="small text-muted mb-2">
+            Manage join requests and invitations.
+        </p>
+        <hr class="my-2">
+        <div class="list-group">
+            {% for req in pending_requests %}
+            <div class="list-group-item d-flex justify-content-between align-items-center bg-white border-0 mb-1 rounded">
+                <div>
+                    <i class="bi bi-person-plus"></i>
+                    {% if req.inviter %}
                         <strong>{{ req.inviter.username }}</strong> wants to invite <strong>{{ req.user.username }}</strong>
-                    </div>
-                    <div>
-                        <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='accept') }}" method="POST">
-                            <button class="btn btn-sm btn-success me-1" title="Approve & Send Invite"><i class="bi bi-check-lg"></i> Approve</button>
-                        </form>
-                        <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='reject') }}" method="POST">
-                            <button class="btn btn-sm btn-danger" title="Reject"><i class="bi bi-x-lg"></i></button>
-                        </form>
-                    </div>
+                    {% else %}
+                        <strong>{{ req.user.username }}</strong> wants to join this room
+                    {% endif %}
                 </div>
-                {% endfor %}
+                <div>
+                    <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='accept') }}" method="POST">
+                        <button class="btn btn-sm btn-success me-1" title="Approve"><i class="bi bi-check-lg"></i> Approve</button>
+                    </form>
+                    <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='reject') }}" method="POST">
+                        <button class="btn btn-sm btn-danger" title="Reject"><i class="bi bi-x-lg"></i></button>
+                    </form>
+                </div>
             </div>
+            {% endfor %}
         </div>
-        {% endif %}
-        
-        <div>
+    </div>
+    {% endif %}
+    <div>
             {% if room.is_private %}
                 <span class="badge bg-secondary"><i class="bi bi-lock-fill"></i> Private</span>
             {% else %}

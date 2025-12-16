@@ -16,7 +16,7 @@ FRIENDUS
 │   ├── templates
 │   │   ├── account.html
 │   │   ├── chat_lobby.html
-│   │   ├── chat_room.html
+│   │   ├── chat_room.html  
 │   │   ├── chat.html
 │   │   ├── finance.html
 │   │   ├── index.html
@@ -49,4 +49,4 @@ FRIENDUS
 ├── requirements.txt
 └── run.py
 
-Đây là project tree của tôi cho hỏi bạn cần files nào
+Đây là project tree của tôi cho hỏi bạn cần files nào?, tôi sắp host online lên Onrender nên phải đảm bảo tính năng có thể hoạt động được với socketIO

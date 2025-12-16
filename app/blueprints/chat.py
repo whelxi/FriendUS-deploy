@@ -275,22 +275,41 @@ def manage_request(req_id, action):
         return redirect(url_for('chat.chat_room', room_name=room.name))
 
     if action == 'accept':
-        # LOGIC CŨ: Thêm user vào ngay (SAI với yêu cầu mới)
-        # room.members.append(user_to_add) ...
-        
-        # LOGIC MỚI: 
-        # A (Creator) duyệt yêu cầu của C -> Chuyển status thành 'pending_user' 
-        # Lúc này B (User) sẽ nhận được lời mời trong danh sách của họ
-        req.status = 'pending_user'
-        db.session.commit()
-        
-        # Gửi thông báo SocketIO cho User B biết là họ vừa nhận được lời mời
-        # (Lời mời này thực chất do C tạo, nhưng giờ A mới duyệt cho đi)
-        socketio.emit('new_invitation', {
-            'msg': f'You have been invited to join {room.name} (Approved by owner)'
-        }, to=f"user_{req.user_id}") # req.user_id là ID của B
-        
-        flash(f'Request approved. Invitation sent to {req.user.username}.', 'success')
+        # --- [LOGIC MỚI] ---
+        # TRƯỜNG HỢP 1: User tự xin vào (Join Request) -> Không có người mời (inviter_id is None)
+        # Hành động: Thêm thẳng vào phòng luôn.
+        if req.inviter_id is None:
+            room.members.append(req.user)
+            db.session.delete(req) # Xóa request vì đã hoàn tất
+            
+            # (Tùy chọn) Cập nhật sở thích cho User vì đã được vào phòng
+            if room.tags:
+                tags_list = room.tags.split(',')
+                auto_update_user_interest(req.user_id, tags_list, weight_increment=2.0)
+
+            db.session.commit()
+            
+            # Gửi thông báo SocketIO để User biết mình đã được vào (nếu đang online)
+            socketio.emit('request_approved', {
+                'room_id': room.id, 
+                'room_name': room.name,
+                'msg': f'Welcome! Your request to join {room.name} has been approved.'
+            }, to=f"user_{req.user_id}")
+            
+            flash(f'Approved {req.user.username} to join the room.', 'success')
+
+        # TRƯỜNG HỢP 2: Thành viên C mời User B (Invitation) -> Có người mời
+        # Hành động: Duyệt xong thì gửi lời mời chính thức cho B (B cần Accept)
+        else:
+            req.status = 'pending_user'
+            db.session.commit()
+            
+            # Gửi thông báo SocketIO cho User B
+            socketio.emit('new_invitation', {
+                'msg': f'You have been invited to join {room.name} (Approved by owner)'
+            }, to=f"user_{req.user_id}")
+            
+            flash(f'Request approved. Invitation sent to {req.user.username}.', 'success')
         
     elif action == 'reject':
         db.session.delete(req)
