@@ -32,3 +32,6 @@ requests==2.31.0       # For calling external APIs (Maps, etc.)
 openai==1.3.0          # If you are using OpenAI for the AI Planner
 google-generativeai==0.8.5 #Use for backend
 scikit-learn==1.6.1 #Use for tag
+
+# For Onrender
+gunicorn==21.2.0
