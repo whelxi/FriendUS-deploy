@@ -19,35 +19,57 @@ except Exception as e:
     print(f"Warning: Google AI Key missing or invalid. {e}")
     model = None
 
-# [CẤU HÌNH] Danh sách Tag và Interest chuẩn của hệ thống (Knowledge Base)
-# Bạn nên mở rộng danh sách này đầy đủ các chủ đề mà App hỗ trợ
-INTERESTS_ALL = [
-    "du lịch bụi", "nghỉ dưỡng", "ẩm thực", "khám phá", 
-    "chụp ảnh", "lịch sử", "công nghệ", "nghệ thuật", 
-    "thể thao", "mạo hiểm", "đọc sách", "âm nhạc"
+# [THÊM] Định nghĩa mức điểm tối đa ở đầu file hoặc ngay trên hàm
+MAX_INTEREST_SCORE = 20.0
+
+# --- 1. DANH SÁCH TAGS CHUẨN (Dùng cho cả Giao diện và AI) ---
+TAG_CHOICES = [
+    ('Travel', 'Travel ✈️'),
+    ('Food', 'Food 🍜'),
+    ('Coffee', 'Coffee ☕'),
+    ('Music', 'Music 🎵'),
+    ('Sports', 'Sports ⚽'),
+    ('Gaming', 'Gaming 🎮'),
+    ('Technology', 'Technology 💻'),
+    ('Movies', 'Movies 🎬'),
+    ('Reading', 'Reading 📚'),
+    ('Study', 'Study 📖'),
+    ('Camping', 'Camping ⛺'),
+    ('Shopping', 'Shopping 🛍️'),
+    ('Photography', 'Photography 📷'),
+    ('Billiards', 'Billiards 🎱'),
+    ('Just Chatting', 'Just Chatting 🗣️')
 ]
 
-TAGS_ALL = [
-    "leo núi", "biển", "rừng", "resort", "street food", 
-    "bảo tàng", "check-in", "coding", "triển lãm", 
-    "bóng đá", "camping", "sách", "concert", "cafe"
-]
+# --- 2. CẤU HÌNH AI & THUẬT TOÁN ---
+# (Code genai giữ nguyên...)
 
-# Khởi tạo Vectorizer và Matrix (Chạy 1 lần khi import)
+# --- [SỬA ĐOẠN NÀY] Tự động trích xuất danh sách cho AI ---
+# Thay vì khai báo thủ công INTERESTS_ALL = ["...", "..."], ta lấy từ TAG_CHOICES
+# Điều này giúp logic AI luôn đồng bộ với những gì người dùng chọn
+ALL_TAGS_TEXT = [tag[0] for tag in TAG_CHOICES] 
+
+# Để tương thích với code cũ, ta gán cả Interest và Tag bằng danh sách đầy đủ
+INTERESTS_ALL = ALL_TAGS_TEXT 
+TAGS_ALL = ALL_TAGS_TEXT
+
+# Khởi tạo Vectorizer và Matrix
 try:
     vectorizer_matrix = TfidfVectorizer(lowercase=True, ngram_range=(1, 2))
-    docs = INTERESTS_ALL + TAGS_ALL
+    
+    # [SỬA] Docs bây giờ chính là danh sách tags chuẩn của bạn
+    docs = ALL_TAGS_TEXT 
+    
     tfidf_matrix = vectorizer_matrix.fit_transform(docs)
     
-    interest_vecs = tfidf_matrix[:len(INTERESTS_ALL)]
-    tag_vecs = tfidf_matrix[len(INTERESTS_ALL):]
-    
-    # Ma trận trọng số W (Interest x Tags)
-    W = cosine_similarity(interest_vecs, tag_vecs)
+    # [SỬA] Vì ta gộp chung, ma trận W sẽ tính độ tương đồng giữa TẤT CẢ các thẻ với nhau
+    W = cosine_similarity(tfidf_matrix, tfidf_matrix)
     
     # Index map để tra cứu nhanh
-    INTEREST_INDEX = {v: i for i, v in enumerate(INTERESTS_ALL)}
-    TAG_INDEX = {v: i for i, v in enumerate(TAGS_ALL)}
+    # Code cũ tách Interest/Tag riêng, code mới dùng chung Index map cho tiện
+    INTEREST_INDEX = {v: i for i, v in enumerate(ALL_TAGS_TEXT)}
+    TAG_INDEX = {v: i for i, v in enumerate(ALL_TAGS_TEXT)}
+    
 except Exception as e:
     print(f"Error initializing ML Matrix: {e}")
     W = None
@@ -163,22 +185,38 @@ def auto_update_user_interest(user_id, tags_list, weight_increment=1.0):
         record = UserTagScore.query.filter_by(user_id=user_id, tag=tag_clean).first()
         
         if record:
-            record.score += weight_increment
-            record.last_interaction = datetime.utcnow()
+            new_score = record.score + weight_increment
+            # [LOGIC MỚI] Kẹp giá trị trong khoảng từ 0 đến MAX
+            # max(0.0, ...) -> Không cho xuống dưới 0
+            # min(..., MAX) -> Không cho vượt quá MAX
+            record.score = max(0.0, min(new_score, MAX_INTEREST_SCORE))
+            # Chỉ cập nhật thời gian nếu là hành động tích cực (tăng điểm)
+            if weight_increment > 0:
+                record.last_interaction = datetime.datetime.utcnow()
         else:
-            # Nếu chưa có, tạo mới
-            new_record = UserTagScore(user_id=user_id, tag=tag_clean, score=weight_increment)
-            db.session.add(new_record)
+            # Nếu chưa có record mà lại trừ điểm thì bỏ qua (hoặc tạo mới = 0)
+            if weight_increment > 0:
+                initial_score = min(weight_increment, MAX_INTEREST_SCORE)
+                new_record = UserTagScore(user_id=user_id, tag=tag_clean, score=initial_score)
+                db.session.add(new_record)
     
     db.session.commit()
 
 # [UPDATED] Hàm tính điểm có xét đến trọng số cá nhân
-def score_from_matrix_personalized(user_id, item_tags):
+def score_from_matrix_personalized(user_id, item_tags, user_scores_cache=None):
     """
     user_id: ID người dùng để lấy bảng điểm cá nhân
     item_tags: Tags của bài post hoặc room cần chấm điểm
     """
     if W is None: return 0.0
+
+    # Nếu được truyền cache thì dùng, không thì mới query DB
+    if user_scores_cache is not None:
+        user_scores = user_scores_cache
+    else:
+        user_scores = UserTagScore.query.filter_by(user_id=user_id).all()
+        
+    if not user_scores: return 0.0
 
     # 1. Lấy tất cả các tag mà user này CÓ ĐIỂM trong database
     user_scores = UserTagScore.query.filter_by(user_id=user_id).all()
@@ -213,13 +251,12 @@ def score_from_matrix_personalized(user_id, item_tags):
 
     if not rows: return 0.0
 
-    # Logic Max-Pooling cũ của bạn
-    row_max_sum = sum(max(r) for r in rows)
-    if len(rows) > 0:
-        score_row = row_max_sum / len(rows)
-    else: 
-        score_row = 0
+    # [FIX SUGGESTION] Thay vì chia trung bình, hãy lấy điểm cao nhất tìm được
+    # Logic: Nếu bài viết có 1 tag trúng "tủ" (điểm 10) và 3 tag không liên quan (điểm 0)
+    # Trung bình = 2.5 (Thấp -> Sai) | Max = 10 (Cao -> Đúng)
+    
+    # Lấy max của từng dòng, sau đó lấy max của toàn bộ các dòng
+    max_scores = [max(r) for r in rows]
+    final_score = max(max_scores) if max_scores else 0.0
 
-    # Normalize lại điểm (vì u_score có thể tăng vô tận)
-    # Ta có thể dùng log hoặc sigmoid nếu điểm quá lớn, tạm thời để nguyên
-    return round(score_row * 10, 2)
+    return round(final_score, 2)

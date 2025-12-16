@@ -2,6 +2,23 @@ from flask_login import UserMixin
 from datetime import datetime
 from app.extensions import db, login_manager
 
+# 1. Bảng trung gian để lưu User nào đã Like Post nào
+post_likes = db.Table('post_likes',
+    db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
+    db.Column('post_id', db.Integer, db.ForeignKey('post.id'), primary_key=True)
+)
+
+# 2. Model cho Comment
+class Comment(db.Model):
+    id = db.Column(db.Integer, primary_key=True)
+    body = db.Column(db.String(200), nullable=False)
+    timestamp = db.Column(db.DateTime, index=True, default=datetime.utcnow)
+    user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
+    post_id = db.Column(db.Integer, db.ForeignKey('post.id'), nullable=False)
+    
+    # Quan hệ để truy xuất người comment
+    author = db.relationship('User', backref='comments')
+
 # Bảng lưu điểm trọng số sở thích của User (Hệ thống tự học)
 class UserTagScore(db.Model):
     id = db.Column(db.Integer, primary_key=True)
@@ -106,6 +123,19 @@ class Post(db.Model):
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
     latitude = db.Column(db.Float, nullable=True)
     longitude = db.Column(db.Float, nullable=True)
+
+    # [NEW] Relationship Likes
+    likes = db.relationship('User', secondary=post_likes, backref=db.backref('liked_posts', lazy='dynamic'))
+    
+    # [NEW] Relationship Comments
+    comments = db.relationship('Comment', backref='post', lazy='dynamic', cascade="all, delete-orphan")
+    
+    # [NEW] Đếm số lượt share (đơn giản nhất)
+    shares_count = db.Column(db.Integer, default=0)
+
+    # Helper function để check user đã like chưa
+    def is_liked_by(self, user):
+        return user in self.likes
 
     def __repr__(self):
         return f"Post('{self.body}')"

@@ -133,17 +133,49 @@
   <div class="tab-pane fade show active" id="my-rooms" role="tabpanel">
      <div class="row row-cols-1 row-cols-md-3 g-4">
         {% for room in my_rooms %}
-            <!-- Copy code hiển thị card phòng cũ của bạn vào đây -->
             <div class="col">
-                <div class="card h-100 shadow-sm border-primary">
+                <div class="card h-100 shadow-sm border">
+                    
                     <div class="card-body">
-                        <h5 class="card-title">{{ room.name }}</h5>
-                        <a href="{{ url_for('chat.chat_room', room_name=room.name) }}" class="btn btn-primary w-100">Enter Chat</a>
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            {% if room.is_private %}
+                                <span class="badge bg-secondary"><i class="bi bi-lock-fill"></i> Private</span>
+                            {% else %}
+                                <span class="badge bg-success"><i class="bi bi-globe"></i> Public</span>
+                            {% endif %}
+                            <small class="text-muted"><i class="bi bi-people-fill"></i> {{ room.members.count() }} members</small>
+                        </div>
+
+                        <h5 class="card-title fw-bold text-primary mb-1">{{ room.name }}</h5>
+                        <p class="card-text text-muted small text-truncate mb-3">{{ room.description or 'No description provided.' }}</p>
+                        
+                        <div>
+                            {% if room.tags %}
+                                {% for tag in room.tags.split(',') if tag %}
+                                    <span class="badge bg-light text-dark border rounded-pill py-1 px-2 mb-1">
+                                        <i class="bi bi-hash text-info"></i> {{ tag }}
+                                    </span>
+                                {% endfor %}
+                            {% else %}
+                                <span class="badge bg-light text-secondary border">No tags</span>
+                            {% endif %}
+                        </div>
+                    </div>
+
+                    <div class="card-footer bg-white border-top-0 pt-0 pb-3">
+                        <a href="{{ url_for('chat.chat_room', room_name=room.name) }}" class="btn btn-primary w-100 fw-bold">
+                            Enter Chat <i class="bi bi-arrow-right-short"></i>
+                        </a>
                     </div>
                 </div>
             </div>
         {% else %}
-            <p class="text-muted p-3">You haven't joined any rooms.</p>
+            <div class="col-12 text-center py-5">
+                <p class="text-muted fs-5">You haven't joined any rooms yet.</p>
+                <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+                    Create your first room
+                </button>
+            </div>
         {% endfor %}
      </div>
   </div>

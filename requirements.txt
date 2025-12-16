@@ -1,37 +1,31 @@
-# --- Core Web Framework & Extensions ---
-flask
-bootstrap-flask
-flask-login
-flask-socketio
-flask-sqlalchemy
-flask-wtf
-email-validator
+# ---- Core ----
+Flask==3.0.3
+gunicorn
 eventlet
 
-# --- Production Server ---
-gunicorn==21.2.0
+# ---- Flask Extensions ----
+bootstrap-flask
+Flask-Login
+Flask-SocketIO
+Flask-SQLAlchemy
+Flask-WTF
+email-validator
 
-# --- Geospatial Data ---
-osmnx
-geopandas
-pyogrio
-matplotlib
+# ---- Database ----
+SQLAlchemy
 
-# --- Database ---
-sqlalchemy
-
-# --- Authentication & Utilities ---
+# ---- Auth / OAuth ----
 Authlib
 requests
 python-dotenv
+
+# ---- Utilities ----
 Pillow
-markdown
+Markdown
 bleach
 
-# --- AI & Data Science ---
-fastapi
-uvicorn
-pydantic
-scikit-learn
-numpy
+# ---- Google Generative AI ----
 google-generativeai
+grpcio
+protobuf
+google-api-core

@@ -1,14 +1,98 @@
 import os
-from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import current_user, login_required
 from werkzeug.utils import secure_filename
 from sqlalchemy import func, or_ # [NEW] Import để query OR cho tìm kiếm 
 from app.extensions import db
-from app.models import Post, Review, Location, User, FriendRequest
-from app.forms import PostForm
-from app.utils import score_from_matrix_personalized
+from app.models import Post, Review, Location, User, FriendRequest, Comment
+from app.forms import PostForm, CommentForm
+from app.utils import score_from_matrix_personalized, auto_update_user_interest
 
 main_bp = Blueprint('main', __name__)
+
+# --- 1. Route xử lý LIKE ---
+@main_bp.route('/post/<int:post_id>/like', methods=['POST'])
+@login_required
+def like_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    
+    # Lấy tags để tính toán
+    tags_list = post.tags.split(',') if post.tags else []
+
+    if post.is_liked_by(current_user):
+        # --- UNLIKE ---
+        post.likes.remove(current_user)
+        action = 'unliked'
+        # [ALGORITHM] Bỏ like -> Giảm sự quan tâm (-1.0)
+        auto_update_user_interest(current_user.id, tags_list, weight_increment=-1.0)
+    else:
+        # --- LIKE ---
+        post.likes.append(current_user)
+        action = 'liked'
+        # [ALGORITHM] Like -> Tăng sự quan tâm (+1.0)
+        auto_update_user_interest(current_user.id, tags_list, weight_increment=1.0)
+
+    db.session.commit()
+    return jsonify({'status': 'success', 'action': action, 'count': len(post.likes)})
+
+# --- 2. Route xử lý COMMENT ---
+@main_bp.route('/post/<int:post_id>/comment', methods=['POST'])
+@login_required
+def comment_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    form = CommentForm()
+    
+    if form.validate_on_submit():
+        comment = Comment(body=form.body.data, author=current_user, post=post)
+        db.session.add(comment)
+        
+        # [ALGORITHM] Comment thể hiện sự quan tâm sâu -> Tăng trọng số rất mạnh (+2.0)
+        if post.tags:
+            auto_update_user_interest(current_user.id, post.tags.split(','), weight_increment=2.0)
+            
+        db.session.commit()
+        return redirect(url_for('main.index')) # Hoặc dùng Ajax nếu muốn xịn hơn
+    
+    flash('Error posting comment.', 'danger')
+    return redirect(url_for('main.index'))
+
+# --- Route xử lý DELETE COMMENT ---
+@main_bp.route('/comment/<int:comment_id>/delete', methods=['POST'])
+@login_required
+def delete_comment(comment_id):
+    comment = Comment.query.get_or_404(comment_id)
+    
+    # Kiểm tra quyền: Chỉ chủ comment HOẶC chủ bài viết mới được xóa
+    if comment.author != current_user and comment.post.author != current_user:
+        flash('You do not have permission to delete this comment.', 'danger')
+        return redirect(url_for('main.index'))
+
+    post = comment.post 
+    # [ALGORITHM] Xóa comment -> Giảm mạnh sự quan tâm (-2.0)
+    # Logic: Nếu lúc comment được +2, thì xóa comment (hết quan tâm/ghét) sẽ bị trừ 2
+    if post.tags:
+        auto_update_user_interest(current_user.id, post.tags.split(','), weight_increment=-2.0)
+
+    db.session.delete(comment)
+    db.session.commit()
+    
+    flash('Comment deleted.', 'success')
+    # Quay lại trang trước đó (hoặc trang chủ nếu không xác định được)
+    return redirect(request.referrer or url_for('main.index'))
+
+# --- 3. Route xử lý SHARE (Đếm số) ---
+@main_bp.route('/post/<int:post_id>/share', methods=['POST'])
+@login_required
+def share_post(post_id):
+    post = Post.query.get_or_404(post_id)
+    post.shares_count += 1
+    
+    # [ALGORITHM] Share là hành động cao nhất -> Tăng trọng số (+3.0)
+    if post.tags:
+        auto_update_user_interest(current_user.id, post.tags.split(','), weight_increment=3.0)
+        
+    db.session.commit()
+    return jsonify({'status': 'success', 'shares': post.shares_count})
 
 @main_bp.route('/update_interests', methods=['POST'])
 @login_required
@@ -47,6 +131,7 @@ def track_interest():
 @login_required
 def index():
     form = PostForm()
+    comment_form = CommentForm()
     if form.validate_on_submit():
         filename = None
         if form.media.data:
@@ -89,7 +174,11 @@ def index():
     suggestions = User.query.filter(User.id != current_user.id).order_by(func.random()).limit(3).all()
     # -------------------------------------------------------
 
-    return render_template('index.html', title='Home', form=form, posts=final_posts, suggestions=suggestions)
+    return render_template('index.html', title='Home', 
+                           form=form, 
+                           comment_form=comment_form, 
+                           posts=final_posts, 
+                           suggestions=suggestions)
 
 # --- FRIEND SYSTEM ROUTES ---
 

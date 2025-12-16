@@ -9,6 +9,7 @@ FRIENDUS
 │   │   ├── finance.py
 │   │   ├── main.py
 │   │   ├── map.py
+│   │   ├── weather.py
 │   │   └── planner.py
 │   ├── debug/
 │   ├── static/
@@ -27,6 +28,7 @@ FRIENDUS
 │   │   ├── planner.html
 │   │   ├── profile.html
 │   │   ├──onboarding.html
+│   │   ├──weather.html
 │   │   └── register.html
 │   ├── __init__.py
 │   ├── events.py

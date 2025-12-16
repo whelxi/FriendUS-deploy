@@ -1,45 +1,54 @@
 name: friendus-env
 channels:
   - conda-forge
-  - defaults  
+  - defaults
+
 dependencies:
   # --- Core Python ---
-  - python=3.14
+  - python=3.11
   - pip
 
   # --- Flask Web Framework ---
   - flask
-  - bootstrap-flask    # REQUIRED for: from flask_bootstrap import Bootstrap5
-  - flask-login        # REQUIRED for: login_user, current_user, etc.
-  - flask-socketio     # REQUIRED for: SocketIO, emit, join_room
-  - flask-sqlalchemy   # REQUIRED for: db, models
-  - flask-wtf          # REQUIRED for: forms (RegisterForm, LoginForm, etc.)
-  - email-validator    # REQUIRED for: validating emails in your forms
-  - eventlet          # The Windows web server (replaces gunicorn)
+  - bootstrap-flask
+  - flask-login
+  - flask-socketio
+  - flask-sqlalchemy
+  - flask-wtf
+  - email-validator
+  - eventlet
 
-  # --- Geospatial Data (The heavy lifters) ---
-  - osmnx              # REQUIRED for: import osmnx
-  - geopandas          # REQUIRED for: import geopandas
-  - pyogrio            # Faster file reading for geopandas (highly recommended)
-  - matplotlib-base    # Often needed by osmnx for plotting (optional but good to have)
+  # --- Geospatial Data ---
+  - osmnx
+  - geopandas
+  - pyogrio
+  - matplotlib-base
 
   # --- Database ---
   - sqlalchemy
 
-  # --- Auth
-  - Authlib
+  # --- Auth ---
+  - authlib
   - requests
   - python-dotenv
 
-  # Utilities
-  - Pillow
+  # --- Utilities ---
+  - pillow
   - markdown
   - bleach
 
-  # AI
+  # --- AI / ML Core ---
   - fastapi
   - uvicorn
   - pydantic
   - scikit-learn
   - numpy
-  - google-generativeai
+
+  # --- Google Generative AI LOW-LEVEL DEPS ---
+  - grpcio
+  - protobuf
+  - google-api-core
+
+  # --- Pip-only packages ---
+  - pip:
+      - google-generativeai

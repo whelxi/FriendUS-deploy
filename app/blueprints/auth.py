@@ -1,7 +1,8 @@
 from flask import Blueprint, render_template, redirect, url_for, flash, request, session
 from flask_login import login_user, logout_user, current_user, login_required
 from app.extensions import db, oauth
-from app.models import User, Post
+from app.models import User, Post, UserTagScore
+# [QUAN TRỌNG] Đảm bảo đã import OnboardingForm
 from app.forms import LoginForm, RegisterForm, UpdateAccountForm, OnboardingForm
 from app.utils import save_picture
 import secrets
@@ -28,25 +29,36 @@ def check_onboarding():
 @auth_bp.route('/onboarding', methods=['GET', 'POST'])
 @login_required
 def onboarding():
-    # Nếu user đã có interests -> Đẩy về trang chủ luôn
     if current_user.interests:
         return redirect(url_for('main.index'))
 
-    # Lưu ý: Form này không cần class OnboardingForm phức tạp nếu bạn dùng JS custom
-    # Nhưng nếu dùng form.validate_on_submit() thì phải đảm bảo frontend gửi đúng name="interests"
-    if request.method == 'POST':
-        # Lấy dữ liệu từ input hidden có name="interests"
-        selected_interests = request.form.get('interests')
+    form = OnboardingForm()
+
+    if form.validate_on_submit():
+        selected_tags = form.interests.data
         
-        if selected_interests:
-            current_user.interests = selected_interests # Lưu chuỗi "Tag1,Tag2"
+        if selected_tags:
+            # 1. Lưu dạng chuỗi (để hiển thị profile cho dễ)
+            current_user.interests = ','.join(selected_tags)
+            
+            # 2. [FIX QUAN TRỌNG] Khởi tạo điểm số ban đầu vào bảng UserTagScore
+            # Cho điểm cao (ví dụ 5.0) vì đây là cái họ chủ động chọn
+            for tag in selected_tags:
+                # Kiểm tra tránh duplicate
+                exists = UserTagScore.query.filter_by(user_id=current_user.id, tag=tag).first()
+                if not exists:
+                    init_score = UserTagScore(user_id=current_user.id, tag=tag, score=5.0)
+                    db.session.add(init_score)
+            
             db.session.commit()
             flash('Welcome! Your profile is ready.', 'success')
             return redirect(url_for('main.index'))
         else:
+            # Trường hợp form pass validate nhưng list rỗng (hiếm khi xảy ra do validator)
             flash('Please select at least one interest.', 'warning')
     
-    return render_template('onboarding.html', title='Welcome', hide_nav=True)
+    # 3. [QUAN TRỌNG] Truyền biến form=form sang template
+    return render_template('onboarding.html', title='Welcome', form=form, hide_nav=True)
 
 # --- Standard Login Routes ---
 @auth_bp.route('/login', methods=['GET', 'POST'])
@@ -61,7 +73,7 @@ def login():
         if user and user.password == form.password.data:
             login_user(user, remember=form.remember.data)
             
-            # [LOGIC MỚI] Kiểm tra xem đã có interests chưa
+            # Kiểm tra xem đã có interests chưa
             if not user.interests: 
                 return redirect(url_for('auth.onboarding'))
             
@@ -80,22 +92,18 @@ def register():
     if form.validate_on_submit():
         fake_email = f"{form.username.data}@friendus.local"
         
-        # Xử lý interests khi đăng ký (nếu có)
-        interests_str = ''
-        if form.interests.data:
-            interests_str = ','.join(form.interests.data)
-
         user = User(
             username=form.username.data, 
             email=fake_email, 
             password=form.password.data,
-            interests=interests_str 
+            interests='' # Để trống để trigger onboarding
         )
         db.session.add(user)
         db.session.commit()
         
-        flash(f'Account created for {form.username.data}!', 'success')
-        return redirect(url_for('auth.login'))
+        login_user(user)
+        flash(f'Account created! Please select your interests to get started.', 'success')
+        return redirect(url_for('auth.onboarding'))
         
     return render_template('register.html', title='Register', form=form)
 
@@ -130,14 +138,11 @@ def google_callback():
 
     if user:
         login_user(user)
-        # [LOGIC MỚI] User cũ đăng nhập -> Kiểm tra interests
         if not user.interests:
             return redirect(url_for('auth.onboarding'))
-        
         flash('Logged in successfully via Google!', 'success')
         return redirect(url_for('main.index'))
     else:
-        # User mới tạo từ Google
         base_username = name.replace(" ", "")
         username = base_username
         if User.query.filter_by(username=username).first():
@@ -145,17 +150,16 @@ def google_callback():
             
         random_password = secrets.token_urlsafe(16)
         
-        # Lưu ý: interests mặc định là '' (rỗng)
         new_user = User(
             username=username, 
             email=email,
-            password=random_password 
+            password=random_password,
+            interests='' # Để trống
         )
         db.session.add(new_user)
         db.session.commit()
         
         login_user(new_user)
-        # [LOGIC MỚI] User mới tinh -> Chắc chắn chưa có interests -> Vào onboarding
         flash('Account created! Please select your interests.', 'success')
         return redirect(url_for('auth.onboarding'))
 
@@ -171,31 +175,26 @@ def profile(username):
     
     if user == current_user:
         if form.validate_on_submit():
-            # 1. Handle Picture Upload
             if form.picture.data:
                 picture_file = save_picture(form.picture.data)
                 current_user.image_file = picture_file
             
-            # 2. Update Info
             current_user.username = form.username.data
             
-            # 3. [UPDATED] Update Interests (List -> String)
+            # Cập nhật tags từ form (List -> String)
             if form.interests.data:
                 current_user.interests = ','.join(form.interests.data)
             else:
-                current_user.interests = '' # Clear if empty
+                current_user.interests = ''
             
             db.session.commit()
-            
             flash('Your account has been updated!', 'success')
             return redirect(url_for('auth.profile', username=current_user.username))
         
         elif request.method == 'GET':
-            # Pre-fill form with current data
             form.username.data = current_user.username
             form.email.data = current_user.email
-            
-            # [UPDATED] Load Interests to Form (String -> List)
+            # Load tags hiện tại vào form (String -> List) để hiển thị các checkbox đã chọn
             if current_user.interests:
                 form.interests.data = current_user.interests.split(',')
 
@@ -204,14 +203,12 @@ def profile(username):
 @auth_bp.route('/account', methods=['GET', 'POST'])
 @login_required
 def account():
-    # Route này có thể giữ lại hoặc bỏ tùy bạn, nhưng logic update cũng tương tự profile
     form = UpdateAccountForm()
     if form.validate_on_submit():
         if form.picture.data:
             picture_file = save_picture(form.picture.data)
             current_user.image_file = picture_file
         current_user.username = form.username.data
-        # Update interests
         if form.interests.data:
             current_user.interests = ','.join(form.interests.data)
         db.session.commit()

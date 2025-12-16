@@ -3,9 +3,40 @@ from flask_login import current_user, login_required
 from app.extensions import db, socketio
 from app.models import Room, Message, Activity, Constraint, Transaction, User, RoomRequest 
 from app.forms import CreateRoomForm, ActivityForm, ConstraintForm, TransactionForm
-from app.utils import auto_update_user_interest, score_from_matrix_personalized, check_conflicts
+from app.utils import auto_update_user_interest, score_from_matrix_personalized, check_conflicts, summarize_chat, UserTagScore
 
 chat_bp = Blueprint('chat', __name__)
+
+@chat_bp.route('/chat/summary/<int:room_id>', methods=['GET'])
+@login_required
+def get_chat_summary(room_id):
+    room = Room.query.get_or_404(room_id)
+    
+    # Check quyền truy cập (nếu private)
+    if room.is_private and current_user not in room.members:
+        return {"error": "Unauthorized"}, 403
+
+    # Lấy 40 tin nhắn gần nhất
+    messages = Message.query.filter_by(room=room.name)\
+                            .order_by(Message.timestamp.desc())\
+                            .limit(40).all()
+    
+    # Đảo ngược lại để đúng thứ tự thời gian (Cũ -> Mới) cho AI đọc
+    messages.reverse()
+    
+    # [QUAN TRỌNG] Format: "Username: Message content"
+    formatted_chats = [f"{msg.author.username}: {msg.body}" for msg in messages]
+
+    if not formatted_chats:
+        return {"short": "Chưa có tin nhắn", "full": "Chưa có nội dung để tóm tắt"}
+
+    # Gọi hàm AI trong utils
+    short_sum, full_sum = summarize_chat(formatted_chats)
+    
+    return {
+        "short": short_sum,
+        "full": full_sum
+    }
 
 @chat_bp.route('/chat', methods=['GET', 'POST'])
 @login_required
@@ -24,12 +55,14 @@ def chat():
     my_room_ids = [r.id for r in my_rooms]
     raw_public_rooms = Room.query.filter(Room.is_private == False).filter(Room.id.notin_(my_room_ids)).all()
 
-    # [MỚI] Tính điểm và Sort giống hệt bên main.py
+    # [TỐI ƯU] Lấy sở thích user 1 lần duy nhất
+    current_user_scores = UserTagScore.query.filter_by(user_id=current_user.id).all()
+
     ranked_rooms = []
     for room in raw_public_rooms:
-        # Tách tag của room (VD: "Travel,Eating" -> ['Travel', 'Eating'])
         room_tags = room.tags.split(',') if room.tags else []
-        score = score_from_matrix_personalized(current_user.id, room_tags)
+        # Truyền list sở thích vào đây
+        score = score_from_matrix_personalized(current_user.id, room_tags, user_scores_cache=current_user_scores)
         ranked_rooms.append((room, score))
     
     # Sort giảm dần theo điểm
@@ -162,10 +195,6 @@ def invite_to_room(room_id):
 @login_required
 def delete_chat_room(room_id):
     room_to_delete = Room.query.get_or_404(room_id)
-    
-    if room_to_delete.name == 'general':
-          flash('The general room cannot be deleted.', 'danger')
-          return redirect(url_for('chat.chat'))
     
     if room_to_delete.creator != current_user:
         flash('You do not have permission to delete this room.', 'danger')

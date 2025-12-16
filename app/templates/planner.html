@@ -33,7 +33,7 @@
 
                         <div class="d-flex gap-3 mt-2 text-muted" style="font-size: 0.9em;">
                             <div class="border p-1 rounded bg-white">
-                                🕒 {{ act.start_time }} - {{ act.end_time }}
+                                🕒 {{ act.start_time }} {% if act.end_time %}- {{ act.end_time }}{% endif %}
                             </div>
                             <div class="border p-1 rounded bg-white">
                                 📍 {{ act.location }}
@@ -43,17 +43,35 @@
                             </div>
                         </div>
 
-                        {% if conflicts.get(act.id) %}
-                            <div class="mt-2">
+                        <div class="mt-2">
+                            
+                            {% if conflicts.get(act.id) %}
                                 {% for err in conflicts[act.id] %}
                                     {% if err.level == 'critical' %}
-                                        <span class="badge bg-danger">!! {{ err.msg }}</span>
+                                        <span class="badge bg-danger mb-1">!! Logic: {{ err.msg }}</span>
                                     {% else %}
-                                        <span class="badge bg-warning text-dark">! {{ err.msg }}</span>
+                                        <span class="badge bg-warning text-dark mb-1">! Logic: {{ err.msg }}</span>
+                                    {% endif %}
+                                    <br>
+                                {% endfor %}
+                            {% endif %}
+
+                            {% if weather_impacts and weather_impacts.get(act.id) %}
+                                {% for w_err in weather_impacts[act.id] %}
+                                    {% if w_err.level == 'critical' %}
+                                        <div class="alert alert-danger p-1 mb-1 mt-1 d-flex align-items-center border-0" role="alert" style="font-size: 0.85em;">
+                                            <span class="me-2 fs-6">⛈️</span> 
+                                            <div><strong>Thời tiết xấu:</strong> {{ w_err.msg }}</div>
+                                        </div>
+                                    {% else %}
+                                        <div class="alert alert-warning p-1 mb-1 mt-1 d-flex align-items-center border-0" role="alert" style="font-size: 0.85em; color: #856404; background-color: #fff3cd;">
+                                            <span class="me-2 fs-6">⛅</span>
+                                            <div><strong>Lưu ý thời tiết:</strong> {{ w_err.msg }}</div>
+                                        </div>
                                     {% endif %}
                                 {% endfor %}
+                            {% endif %}
                             </div>
-                        {% endif %}
                     </div>
                 </div>
             </div>
@@ -65,14 +83,14 @@
             
             <div class="collapse mt-3" id="addActivityBox">
                 <div class="card card-body">
-                    <form method="POST">
+                    <form method="POST" action="{{ url_for('planner.add_room_activity', room_id=room.id) }}">
                         {{ act_form.hidden_tag() }}
                         <div class="row g-2">
                             <div class="col-6">{{ act_form.name(class="form-control form-control-sm", placeholder="Activity Name") }}</div>
                             <div class="col-3">{{ act_form.price(class="form-control form-control-sm", placeholder="Price") }}</div>
                             <div class="col-3">{{ act_form.rating(class="form-control form-control-sm", placeholder="Rating") }}</div>
-                            <div class="col-6">{{ act_form.start_time(class="form-control form-control-sm", placeholder="Start Time (09:00)") }}</div>
-                            <div class="col-6">{{ act_form.end_time(class="form-control form-control-sm", placeholder="End Time (11:00)") }}</div>
+                            <div class="col-6">{{ act_form.start_time(class="form-control form-control-sm", placeholder="Start Time (e.g. 2025-10-20 09:00)") }}</div>
+                            <div class="col-6">{{ act_form.end_time(class="form-control form-control-sm", placeholder="End Time (e.g. 2025-10-20 11:00)") }}</div>
                             <div class="col-12">{{ act_form.location(class="form-control form-control-sm", placeholder="Location") }}</div>
                             <div class="col-12 mt-2">
                                 {{ act_form.submit(class="btn btn-sm btn-primary w-100") }}
@@ -114,7 +132,7 @@
 
             <hr>
             <h6 class="text-muted text-uppercase" style="font-size: 0.75rem; letter-spacing: 1px;">Add New Constraint</h6>
-            <form method="POST">
+            <form method="POST" action="{{ url_for('planner.add_room_constraint', room_id=room.id) }}">
                 {{ cons_form.hidden_tag() }}
                 <input type="hidden" name="add_constraint" value="1"> 
 

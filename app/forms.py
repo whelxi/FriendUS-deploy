@@ -4,15 +4,11 @@ from wtforms import StringField, PasswordField, SubmitField, BooleanField, TextA
 from wtforms.validators import DataRequired, Length, Email, EqualTo, ValidationError, Optional
 from flask_login import current_user
 from app.models import User, Room
+from app.utils import TAG_CHOICES
 
-# --- DANH SÁCH TAGS ---
-GROUP_HANGOUT_TAGS = [
-    "Eating", "Coffee", "Gaming", "Study", "Travel", 
-    "Music", "Movie", "Sports", "Shopping", "Camping",
-    "Billiards", "Karaoke", "Photography", "Just Chatting"
-]
-# Tạo list choices
-TAG_CHOICES = [(tag, tag) for tag in GROUP_HANGOUT_TAGS]
+class CommentForm(FlaskForm):
+    body = StringField('Comment', validators=[DataRequired(), Length(min=1, max=200)])
+    submit = SubmitField('Post')
 
 class OnboardingForm(FlaskForm):
     # Dùng SelectMultipleField để chọn nhiều tag
@@ -32,20 +28,12 @@ class RegisterForm(FlaskForm):
     password = PasswordField('Password', validators=[DataRequired()])
     confirm_password = PasswordField('Confirm Password', validators=[DataRequired(), EqualTo('password')])
     
-    # [UPDATED] Bắt buộc chọn sở thích khi đăng ký
-    interests = SelectMultipleField('Interests', choices=TAG_CHOICES) 
-    
     submit = SubmitField('Sign Up')
 
     def validate_username(self, username):
         user = User.query.filter_by(username=username.data).first()
         if user:
             raise ValidationError('That username is taken. Please choose another.')
-
-    # [NEW] Validator bắt buộc chọn ít nhất 1 interest
-    def validate_interests(self, interests):
-        if not interests.data or len(interests.data) == 0:
-            raise ValidationError('Please select at least one interest.')
 
 class LoginForm(FlaskForm):
     username = StringField('Username', validators=[DataRequired(), Length(min=2, max=20)])

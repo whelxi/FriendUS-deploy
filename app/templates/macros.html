@@ -1,0 +1,58 @@
+{% macro render_tag_selector(field, max_selection=5) %}
+<div class="mb-3 tag-selector-wrapper">
+    <label class="form-label fw-bold small text-muted">
+        <i class="bi bi-tags-fill"></i> {{ field.label.text }} (Max {{ max_selection }}):
+    </label>
+    
+    <div class="d-flex flex-wrap gap-2">
+        {% for subfield in field %}
+            <input type="checkbox" 
+                   class="btn-check tag-checkbox" 
+                   name="{{ subfield.name }}" 
+                   id="{{ subfield.id }}" 
+                   value="{{ subfield.data }}"
+                   {% if subfield.checked %}checked{% endif %}
+                   autocomplete="off">
+            
+            <label class="btn btn-outline-primary rounded-pill btn-sm interest-tag-label" 
+                   for="{{ subfield.id }}"
+                   style="cursor: pointer; transition: all 0.2s; min-width: 80px;">
+                {{ subfield.label.text }}
+            </label>
+        {% endfor %}
+    </div>
+
+    {% if field.errors %}
+        <div class="text-danger small mt-2">
+            {% for error in field.errors %}
+                <span><i class="bi bi-exclamation-circle"></i> {{ error }}</span>
+            {% endfor %}
+        </div>
+    {% endif %}
+</div>
+{% endmacro %}
+
+{# Macro render_user_tags giữ nguyên không đổi #}
+{% macro render_user_tags(tags_string) %}
+    {# ... (Giữ nguyên phần này như cũ) ... #}
+    {% set tag_icons = {
+        'Travel': '✈️', 'Food': '🍜', 'Coffee': '☕', 'Music': '🎵',
+        'Sports': '⚽', 'Gaming': '🎮', 'Technology': '💻', 'Movies': '🎬',
+        'Reading': '📚', 'Study': '📖', 'Camping': '⛺', 'Shopping': '🛍️',
+        'Photography': '📷', 'Billiards': '🎱', 'Just Chatting': '🗣️'
+    } %}
+    <div class="d-flex flex-wrap gap-2 mb-3">
+        {% if tags_string %}
+            {% for tag in tags_string.split(',') %}
+                {% set tag_clean = tag.strip() %}
+                {% if tag_clean %}
+                    {% set icon = tag_icons.get(tag_clean, '') %}
+                    <span class="badge rounded-pill bg-light text-primary border border-primary px-3 py-2 fw-normal" 
+                          style="font-size: 0.9rem;">
+                        {{ tag_clean }} {{ icon }}
+                    </span>
+                {% endif %}
+            {% endfor %}
+        {% endif %}
+    </div>
+{% endmacro %}
