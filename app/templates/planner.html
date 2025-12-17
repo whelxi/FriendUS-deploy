@@ -3,79 +3,208 @@
 {% block content %}
 
 <style>
-    /* === TIMELINE STYLE === */
+    /* =========================================
+       1. GLOBAL & VARIABLES
+       ========================================= */
+    :root {
+        --primary-color: #0d6efd;
+        --ai-primary: #6610f2; /* Màu tím cho AI */
+        --ai-bg-gradient: linear-gradient(135deg, #fbfbfb 0%, #f3f0ff 100%);
+        --timeline-width: 90px;
+        --dot-size: 16px;
+        --spacing-left: 130px;
+    }
+
+    body {
+        background-color: #f8f9fa;
+    }
+
+    /* =========================================
+       2. AI PLANNER SECTION (REDESIGNED)
+       ========================================= */
+    .ai-wrapper {
+        background: var(--ai-bg-gradient);
+        border: 1px solid rgba(102, 16, 242, 0.1);
+        border-radius: 24px; /* Bo góc lớn hơn */
+        padding: 25px;
+        box-shadow: 0 10px 30px rgba(102, 16, 242, 0.05);
+        position: relative;
+        overflow: hidden;
+    }
+
+    /* Input dạng Chat Bar */
+    .ai-input-group {
+        background: white;
+        border-radius: 50px;
+        padding: 6px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
+        border: 1px solid #e9ecef;
+        display: flex;
+        align-items: center;
+        transition: all 0.3s ease;
+    }
+
+    .ai-input-group:focus-within {
+        border-color: var(--ai-primary);
+        box-shadow: 0 4px 20px rgba(102, 16, 242, 0.15);
+        transform: translateY(-2px);
+    }
+
+    .ai-input {
+        border: none;
+        outline: none;
+        box-shadow: none;
+        background: transparent;
+        padding-left: 15px;
+        font-size: 0.95rem;
+        flex-grow: 1;
+    }
+
+    .btn-ai-send {
+        width: 40px;
+        height: 40px;
+        border-radius: 50%;
+        background: var(--ai-primary);
+        color: white;
+        border: none;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        transition: transform 0.2s;
+    }
+
+    .btn-ai-send:hover {
+        transform: scale(1.1);
+        background: #520dc2;
+    }
+
+    /* Kết quả gợi ý (Cards) */
+    .suggestion-card {
+        background: white;
+        border-radius: 16px;
+        padding: 16px;
+        margin-bottom: 12px;
+        border: 1px solid rgba(0,0,0,0.03);
+        box-shadow: 0 2px 8px rgba(0,0,0,0.02);
+        transition: all 0.2s ease;
+        position: relative;
+        padding-left: 50px; /* Chừa chỗ cho Icon */
+    }
+
+    .suggestion-card:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+        border-color: rgba(102, 16, 242, 0.2);
+    }
+
+    .suggestion-icon {
+        position: absolute;
+        left: 12px;
+        top: 16px;
+        width: 32px;
+        height: 32px;
+        background: #f3f0ff;
+        color: var(--ai-primary);
+        border-radius: 10px;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+    }
+
+    .match-score {
+        font-size: 0.75rem;
+        font-weight: 700;
+        padding: 4px 10px;
+        border-radius: 20px;
+        display: inline-block;
+    }
+    .score-high { background: #d1e7dd; color: #0f5132; }
+    .score-med { background: #fff3cd; color: #664d03; }
+
+    /* =========================================
+       3. TIMELINE SECTION (PREVIOUS DESIGN)
+       ========================================= */
     .timeline-container {
         position: relative;
         padding: 20px 0;
     }
+
     .timeline-line {
         position: absolute;
-        left: 50px;
         top: 0;
         bottom: 0;
-        width: 3px;
+        left: var(--timeline-width);
+        width: 2px;
         background: #e9ecef;
         z-index: 0;
     }
+
     .timeline-item {
         position: relative;
-        margin-bottom: 30px;
+        margin-bottom: 35px;
         z-index: 1;
     }
+
     .timeline-time {
         position: absolute;
         left: 0;
-        width: 45px;
+        width: 80px;
         text-align: right;
-        font-weight: bold;
-        color: #495057;
-        font-size: 0.9rem;
-        top: 2px;
+        padding-right: 15px;
+        top: 0;
+        display: flex;
+        flex-direction: column;
+        align-items: flex-end;
     }
+
+    .time-hour { font-size: 1.1rem; font-weight: 800; color: var(--primary-color); line-height: 1; }
+    .time-date { font-size: 0.75rem; color: #adb5bd; font-weight: 600; margin-top: 4px; text-transform: uppercase; }
+
     .timeline-dot {
         position: absolute;
-        left: 42px; /* Canh giữa line */
-        width: 18px;
-        height: 18px;
+        left: calc(var(--timeline-width) - (var(--dot-size) / 2) + 1px);
+        width: var(--dot-size);
+        height: var(--dot-size);
         border-radius: 50%;
-        background: #0d6efd;
-        border: 4px solid #fff;
-        box-shadow: 0 0 0 1px #dee2e6;
-    }
-    .timeline-card {
-        margin-left: 75px;
         background: #fff;
-        border-radius: 10px;
-        padding: 15px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        border: 1px solid #f0f0f0;
-        transition: transform 0.2s;
+        border: 3px solid var(--primary-color);
+        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
+        transition: all 0.3s ease;
     }
-    .timeline-card:hover {
-        transform: translateY(-2px);
-        box-shadow: 0 5px 15px rgba(0,0,0,0.1);
+
+    .timeline-item:hover .timeline-dot {
+        background: var(--primary-color);
+        box-shadow: 0 0 0 5px rgba(13, 110, 253, 0.2);
     }
-    
-    /* === AI SECTION STYLE === */
-    .ai-wrapper {
-        background: linear-gradient(135deg, #f6f9fc 0%, #edf2f7 100%);
-        border-radius: 12px;
-        padding: 25px;
-        margin-bottom: 30px;
-        border: 1px solid #e1e4e8;
+
+    .timeline-card {
+        margin-left: var(--spacing-left);
+        background: #fff;
+        border-radius: 16px;
+        padding: 20px;
+        border: 1px solid rgba(0,0,0,0.03);
+        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
+        transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
+        cursor: pointer;
+        position: relative;
+        overflow: hidden;
     }
-    .suggestion-item {
-        border-left: 3px solid #0d6efd;
-        background: white;
-        margin-bottom: 8px;
+
+    .timeline-card::before {
+        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
+        background: var(--primary-color); opacity: 0; transition: opacity 0.3s;
     }
+
+    .timeline-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
+    .timeline-card:hover::before { opacity: 1; }
 </style>
 
-<div class="container py-4">
+<div class="container py-5">
     {% with messages = get_flashed_messages(with_categories=true) %}
       {% if messages %}
         {% for category, message in messages %}
-          <div class="alert alert-{{ category }} alert-dismissible fade show" role="alert">
+          <div class="alert alert-{{ category }} alert-dismissible fade show rounded-3 shadow-sm" role="alert">
             {{ message }}
             <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
           </div>
@@ -83,68 +212,68 @@
       {% endif %}
     {% endwith %}
 
-    <div class="d-flex justify-content-between align-items-center mb-4">
-        <h2 class="fw-bold"><i class="bi bi-map"></i> Lịch Trình: {{ room.name }}</h2>
+    <div class="d-flex justify-content-between align-items-center mb-5">
         <div>
-            <a href="{{ url_for('chat.chat_room', room_name=room.name) }}" class="btn btn-outline-secondary me-2">
-                <i class="bi bi-chat-left"></i> Chat
+            <h2 class="fw-bold mb-1 text-dark"><i class="bi bi-map-fill text-primary"></i> Lịch Trình: {{ room.name }}</h2>
+            <p class="text-muted mb-0">Quản lý chuyến đi cùng bạn bè</p>
+        </div>
+        <div>
+            <a href="{{ url_for('chat.chat_room', room_name=room.name) }}" class="btn btn-light border me-2 rounded-pill px-3 fw-bold">
+                <i class="bi bi-chat-dots-fill text-success"></i> Chat
             </a>
-            <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#addActivityModal">
+            <button type="button" class="btn btn-primary rounded-pill px-4 fw-bold shadow-sm" data-bs-toggle="modal" data-bs-target="#addActivityModal">
                 <i class="bi bi-plus-lg"></i> Thêm Hoạt Động
             </button>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-lg-5">
-            <div class="ai-wrapper shadow-sm">
-                <h5 class="fw-bold text-primary mb-3"><i class="bi bi-stars"></i> Tạo lịch trình với AI</h5>
-                <div class="input-group mb-3">
-                    <input type="text" id="wishInput" class="form-control" 
-                           placeholder="VD: Ăn phở, rồi cafe, sau đó xem phim...">
-                    <button class="btn btn-primary" type="button" id="btnGeneratePlan">
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="ai-wrapper sticky-top" style="top: 20px; z-index: 10;">
+                <div class="d-flex align-items-center mb-3">
+                    <div class="bg-white p-2 rounded-circle shadow-sm me-2 text-center" style="width: 40px; height: 40px;">
+                        <i class="bi bi-stars" style="color: #6610f2; font-size: 1.2rem;"></i>
+                    </div>
+                    <div>
+                        <h5 class="fw-bold m-0" style="color: #4a09b3;">AI Assistant</h5>
+                        <small class="text-muted" style="font-size: 0.75rem;">Powered by FriendUS Intelligence</small>
+                    </div>
+                </div>
+
+                <p class="small text-secondary mb-3">Bạn muốn đi đâu hôm nay? Nhập ý tưởng, AI sẽ lên lịch trình giúp bạn.</p>
+                
+                <div class="ai-input-group mb-4">
+                    <input type="text" id="wishInput" class="form-control ai-input" 
+                           placeholder="VD: Ăn sáng quận 1, rồi đi cafe...">
+                    <button class="btn-ai-send shadow-sm" type="button" id="btnGeneratePlan">
                         <span id="btnSpinner" class="spinner-border spinner-border-sm d-none"></span>
-                        Tạo
+                        <i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>
                     </button>
                 </div>
                 
-                <div id="aiResultArea" class="d-none bg-white p-3 rounded border">
-                    <div class="d-flex justify-content-between align-items-center mb-2">
-                        <strong class="text-success">Gợi ý từ AI:</strong>
-                        <span class="badge bg-warning text-dark" id="scoreBadge"></span>
+                <div id="aiResultArea" class="d-none animate__animated animate__fadeIn">
+                    <div class="d-flex justify-content-between align-items-center mb-3">
+                        <span class="text-uppercase fw-bold text-secondary small" style="font-size: 0.7rem; letter-spacing: 1px;">Gợi ý phù hợp nhất</span>
+                        <span id="scoreBadge" class="match-score score-high shadow-sm"></span>
                     </div>
-                    <div id="proposedTimeline" class="list-group list-group-flush mb-3" style="max-height: 300px; overflow-y: auto;">
-                        </div>
-                    <button class="btn btn-success w-100" id="btnSaveToDb">
-                        <i class="bi bi-check-circle"></i> Chấp nhận & Lưu
-                    </button>
-                </div>
-            </div>
 
-            <div class="card border-0 shadow-sm bg-light">
-                <div class="card-body">
-                    <h6 class="fw-bold text-secondary mb-3"><i class="bi bi-sliders"></i> Ràng buộc (Constraints)</h6>
-                    {% for cons in constraints %}
-                    <div class="d-flex justify-content-between align-items-center mb-2 bg-white p-2 rounded border">
-                        <span><b>{{ cons.type }}:</b> {{ cons.value }}</span>
-                        <a href="{{ url_for('planner.delete_constraint', id=cons.id) }}" class="text-danger">&times;</a>
-                    </div>
-                    {% endfor %}
-                    <hr>
-                    <form method="POST" action="{{ url_for('planner.add_room_constraint', room_id=room.id) }}">
-                        {{ cons_form.hidden_tag() }}
-                        <div class="input-group input-group-sm">
-                            {{ cons_form.type(class="form-select", style="max-width: 100px;") }}
-                            {{ cons_form.value(class="form-control", placeholder="Giá trị") }}
-                            <button class="btn btn-outline-secondary" type="submit">+</button>
+                    <div id="proposedTimeline" class="mb-3" style="max-height: 400px; overflow-y: auto; padding-right: 4px;">
                         </div>
-                    </form>
+
+                    <button class="btn w-100 rounded-pill fw-bold text-white shadow-sm" 
+                            id="btnSaveToDb"
+                            style="background: linear-gradient(90deg, #198754 0%, #20c997 100%); border: none; padding: 10px;">
+                        <i class="bi bi-check-circle-fill me-2"></i> Áp dụng Lịch trình này
+                    </button>
                 </div>
             </div>
         </div>
 
-        <div class="col-lg-7">
-            <h4 class="fw-bold mb-4 ps-2 border-start border-4 border-primary">Chi tiết hành trình</h4>
+        <div class="col-lg-8">
+            <div class="d-flex align-items-center mb-4 ps-2 border-bottom pb-3">
+                <h4 class="fw-bold m-0 text-dark">Chi tiết hành trình</h4>
+                <span class="badge bg-light text-dark ms-2 border rounded-pill">{{ activities|length }} hoạt động</span>
+            </div>
             
             {% if activities|length > 0 %}
             <div class="timeline-container">
@@ -154,44 +283,65 @@
                 <div class="timeline-item">
                     <div class="timeline-time">
                         {% if act.start_time and act.start_time.strftime %}
-                            {{ act.start_time.strftime('%H:%M') }}
+                            <div class="time-hour">{{ act.start_time.strftime('%H:%M') }}</div>
+                            <div class="time-date">{{ act.start_time.strftime('%d/%m') }}</div>
                         {% else %}
-                            {{ act.start_time }}
+                            <div class="time-hour">{{ act.start_time }}</div>
                         {% endif %}
                     </div>
+                    
                     <div class="timeline-dot"></div>
-                    <div class="timeline-card">
+                    
+                    <div class="timeline-card" 
+                         title="Nhấn để sửa"
+                         onclick="openEditModal(this)"
+                         data-id="{{ act.id }}"
+                         data-name="{{ act.name }}"
+                         data-location="{{ act.location or '' }}"
+                         data-start="{{ act.start_time.strftime('%Y-%m-%dT%H:%M') if act.start_time and act.start_time.strftime else '' }}"
+                         data-end="{{ act.end_time.strftime('%Y-%m-%dT%H:%M') if act.end_time and act.end_time.strftime else '' }}"
+                         data-price="{{ act.price }}">
+                        
                         <div class="d-flex justify-content-between align-items-start">
-                            <h5 class="fw-bold mb-1">{{ act.name }}</h5>
+                            <div>
+                                <h5 class="fw-bold mb-1 text-dark">{{ act.name }}</h5>
+                                <div class="text-secondary small mb-2">
+                                    <i class="bi bi-geo-alt-fill text-danger me-1"></i>{{ act.location or 'Chưa có địa điểm' }}
+                                </div>
+                            </div>
+                            
                             <a href="{{ url_for('planner.delete_activity', id=act.id) }}" 
-                               class="text-muted" onclick="return confirm('Xóa hoạt động này?');">
+                               class="btn btn-sm btn-outline-danger border-0 rounded-circle opacity-50 hover-opacity-100" 
+                               style="width: 32px; height: 32px; padding: 4px;"
+                               onclick="event.stopPropagation(); return confirm('Xóa hoạt động này?');">
                                <i class="bi bi-trash"></i>
                             </a>
                         </div>
-                        <div class="text-secondary small mb-2">
-                            <i class="bi bi-geo-alt-fill text-danger"></i> {{ act.location or 'Chưa có địa điểm' }}
-                        </div>
                         
                         {% if weather_impacts and weather_impacts.get(act.id) %}
-                            <div class="mt-2 p-2 bg-warning bg-opacity-10 rounded border border-warning">
+                            <div class="mt-2 p-2 bg-warning bg-opacity-10 rounded-3 border border-warning d-flex align-items-start">
+                                <i class="bi bi-exclamation-triangle-fill text-warning me-2 mt-1"></i>
+                                <div>
                                 {% for impact in weather_impacts[act.id] %}
-                                    <div class="small text-dark">
-                                        <i class="bi bi-exclamation-triangle-fill"></i> {{ impact.msg }}
-                                    </div>
+                                    <div class="small text-dark fw-semibold">{{ impact.msg }}</div>
                                 {% endfor %}
+                                </div>
                             </div>
                         {% endif %}
 
-                        <div class="d-flex justify-content-between mt-2 pt-2 border-top">
-                            <small class="text-muted">Đến: 
+                        <div class="d-flex justify-content-between align-items-center mt-3 pt-3 border-top border-light">
+                            <small class="text-muted fw-bold">
+                                <i class="bi bi-clock"></i> Đến: 
                                 {% if act.end_time and act.end_time.strftime %}
-                                    {{ act.end_time.strftime('%H:%M') }}
+                                    {{ act.end_time.strftime('%H:%M %d/%m') }}
                                 {% else %}
                                     {{ act.end_time }}
                                 {% endif %}
                             </small>
                             {% if act.price and act.price > 0 %}
-                            <span class="badge bg-light text-dark border">{{ "{:,.0f}".format(act.price) }} đ</span>
+                            <span class="badge bg-light text-success border border-success px-3 py-2 rounded-pill">
+                                {{ "{:,.0f}".format(act.price) }} đ
+                            </span>
                             {% endif %}
                         </div>
                     </div>
@@ -199,9 +349,12 @@
                 {% endfor %}
             </div>
             {% else %}
-                <div class="text-center py-5 bg-light rounded border border-dashed text-muted">
-                    <i class="bi bi-calendar-x display-1 d-block mb-3 opacity-25"></i>
-                    <p>Chưa có lịch trình nào.</p>
+                <div class="text-center py-5 bg-white rounded-4 shadow-sm border border-dashed">
+                    <div class="mb-3 text-muted opacity-25">
+                        <i class="bi bi-calendar2-plus display-1"></i>
+                    </div>
+                    <h5 class="text-secondary">Chưa có lịch trình nào</h5>
+                    <p class="text-muted small">Hãy thêm hoạt động mới hoặc nhờ AI gợi ý nhé!</p>
                 </div>
             {% endif %}
         </div>
@@ -209,38 +362,79 @@
 </div>
 
 <div class="modal fade" id="addActivityModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
                 <h5 class="modal-title fw-bold">Thêm Hoạt Động Mới</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
+            <div class="modal-body pt-4">
                 <form method="POST" action="{{ url_for('planner.add_room_activity', room_id=room.id) }}">
                     {{ act_form.hidden_tag() }}
                     <div class="mb-3">
-                        <label class="form-label">Tên hoạt động</label>
-                        <input type="text" name="name" class="form-control" placeholder="VD: Check-in khách sạn" required>
+                        <label class="form-label fw-semibold text-secondary small">TÊN HOẠT ĐỘNG</label>
+                        <input type="text" name="name" class="form-control rounded-3 py-2" placeholder="VD: Check-in khách sạn" required>
                     </div>
                     <div class="mb-3">
-                        <label class="form-label">Địa điểm</label>
-                        <input type="text" name="location" class="form-control" placeholder="Địa chỉ...">
+                        <label class="form-label fw-semibold text-secondary small">ĐỊA ĐIỂM</label>
+                        <div class="input-group">
+                            <span class="input-group-text bg-light border-end-0"><i class="bi bi-geo-alt"></i></span>
+                            <input type="text" name="location" class="form-control border-start-0 rounded-end py-2" placeholder="Địa chỉ...">
+                        </div>
                     </div>
                     <div class="row mb-3">
                         <div class="col">
-                            <label class="form-label">Bắt đầu</label>
-                            <input type="datetime-local" name="start_time" class="form-control" required>
+                            <label class="form-label fw-semibold text-secondary small">BẮT ĐẦU</label>
+                            <input type="datetime-local" name="start_time" class="form-control rounded-3" required>
                         </div>
                         <div class="col">
-                            <label class="form-label">Kết thúc</label>
-                            <input type="datetime-local" name="end_time" class="form-control" required>
+                            <label class="form-label fw-semibold text-secondary small">KẾT THÚC</label>
+                            <input type="datetime-local" name="end_time" class="form-control rounded-3" required>
                         </div>
                     </div>
-                    <div class="mb-3">
-                        <label class="form-label">Chi phí (VND)</label>
-                        <input type="number" name="price" class="form-control" value="0">
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold text-secondary small">CHI PHÍ DỰ KIẾN (VND)</label>
+                        <input type="number" name="price" class="form-control rounded-3" value="0">
                     </div>
-                    <button type="submit" class="btn btn-primary w-100">Lưu Hoạt Động</button>
+                    <button type="submit" class="btn btn-primary w-100 rounded-pill py-2 fw-bold">Lưu Hoạt Động</button>
+                </form>
+            </div>
+        </div>
+    </div>
+</div>
+
+<div class="modal fade" id="editActivityModal" tabindex="-1">
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom-0 pb-0">
+                <h5 class="modal-title fw-bold">Sửa Hoạt Động</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body pt-4">
+                <form method="POST" id="editForm" action="">
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small">TÊN HOẠT ĐỘNG</label>
+                        <input type="text" id="edit_name" name="name" class="form-control rounded-3 py-2" required>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label fw-semibold text-secondary small">ĐỊA ĐIỂM</label>
+                        <input type="text" id="edit_location" name="location" class="form-control rounded-3 py-2">
+                    </div>
+                    <div class="row mb-3">
+                        <div class="col">
+                            <label class="form-label fw-semibold text-secondary small">BẮT ĐẦU</label>
+                            <input type="datetime-local" id="edit_start_time" name="start_time" class="form-control rounded-3" required>
+                        </div>
+                        <div class="col">
+                            <label class="form-label fw-semibold text-secondary small">KẾT THÚC</label>
+                            <input type="datetime-local" id="edit_end_time" name="end_time" class="form-control rounded-3" required>
+                        </div>
+                    </div>
+                    <div class="mb-4">
+                        <label class="form-label fw-semibold text-secondary small">CHI PHÍ (VND)</label>
+                        <input type="number" id="edit_price" name="price" class="form-control rounded-3">
+                    </div>
+                    <button type="submit" class="btn btn-warning w-100 rounded-pill py-2 fw-bold text-white">Cập nhật thay đổi</button>
                 </form>
             </div>
         </div>
@@ -249,6 +443,27 @@
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
 <script>
+    function openEditModal(el) {
+        const id = el.getAttribute('data-id');
+        const name = el.getAttribute('data-name');
+        const location = el.getAttribute('data-location');
+        const start = el.getAttribute('data-start');
+        const end = el.getAttribute('data-end');
+        const price = el.getAttribute('data-price');
+
+        const form = document.getElementById('editForm');
+        form.action = "{{ url_for('planner.view_planner', room_id=room.id) }}".replace("plan", "") + "edit_activity/" + id;
+
+        document.getElementById('edit_name').value = name;
+        document.getElementById('edit_location').value = location;
+        document.getElementById('edit_start_time').value = start;
+        document.getElementById('edit_end_time').value = end;
+        document.getElementById('edit_price').value = Math.round(parseFloat(price) || 0);
+
+        var myModal = new bootstrap.Modal(document.getElementById('editActivityModal'));
+        myModal.show();
+    }
+    
     document.addEventListener('DOMContentLoaded', function() {
         var socket = io();
         var roomId = "{{ room.id }}"; 
@@ -259,51 +474,82 @@
         const btnGen = document.getElementById('btnGeneratePlan');
         const input = document.getElementById('wishInput');
         const spinner = document.getElementById('btnSpinner');
+        const sendIcon = btnGen ? btnGen.querySelector('.bi-send-fill') : null;
         const resultArea = document.getElementById('aiResultArea');
         const timelineList = document.getElementById('proposedTimeline');
         const scoreBadge = document.getElementById('scoreBadge');
         const btnSave = document.getElementById('btnSaveToDb');
 
-        btnGen.addEventListener('click', function() {
-            const wish = input.value.trim();
-            if (!wish) return alert("Vui lòng nhập mong muốn của bạn!");
+        if(btnGen) {
+            btnGen.addEventListener('click', function() {
+                const wish = input.value.trim();
+                if (!wish) return; // Silent if empty to not annoy
 
-            btnGen.disabled = true;
-            spinner.classList.remove('d-none');
-            resultArea.classList.add('d-none');
-            timelineList.innerHTML = '';
+                btnGen.disabled = true;
+                if(sendIcon) sendIcon.classList.add('d-none');
+                spinner.classList.remove('d-none');
+                
+                // Ẩn kết quả cũ để tạo cảm giác "đang suy nghĩ"
+                resultArea.classList.add('d-none');
+                timelineList.innerHTML = '';
 
-            socket.emit('request_ai_plan', {
-                room_id: roomId,
-                message: wish,
-                lat: 10.762622, lon: 106.660172
+                socket.emit('request_ai_plan', {
+                    room_id: roomId,
+                    message: wish,
+                    lat: 10.762622, lon: 106.660172
+                });
             });
-        });
+            
+            // Allow Enter key
+            input.addEventListener('keypress', function(e) {
+                if (e.key === 'Enter') btnGen.click();
+            });
+        }
 
         socket.on('plan_generated', function(response) {
             btnGen.disabled = false;
+            if(sendIcon) sendIcon.classList.remove('d-none');
             spinner.classList.add('d-none');
 
             if (response.status === 'success') {
                 resultArea.classList.remove('d-none');
                 currentPlanSteps = response.data.steps;
-                scoreBadge.innerText = `Score: ${parseFloat(response.data.total_score).toFixed(1)}`;
+                
+                // Hiển thị Score đẹp hơn
+                const score = parseFloat(response.data.total_score);
+                const scorePercent = Math.round(score * 100);
+                scoreBadge.innerText = `Match: ${scorePercent}%`;
+                if(score > 0.7) {
+                    scoreBadge.className = 'match-score score-high shadow-sm';
+                } else {
+                    scoreBadge.className = 'match-score score-med shadow-sm';
+                }
 
                 let html = '';
                 if(!currentPlanSteps || currentPlanSteps.length === 0) {
-                    html = '<div class="alert alert-warning small">Không tìm thấy địa điểm phù hợp. Hãy thử từ khóa khác.</div>';
+                    html = `
+                        <div class="text-center py-4 text-muted">
+                            <i class="bi bi-emoji-frown fs-4"></i>
+                            <p class="small mt-2">Hmm, mình chưa tìm thấy chỗ nào hợp lý. Thử lại nhé?</p>
+                        </div>`;
                     btnSave.disabled = true;
                 } else {
                     btnSave.disabled = false;
                     currentPlanSteps.forEach(step => {
+                        // Tạo Card gợi ý mới
                         html += `
-                            <div class="list-group-item suggestion-item p-2">
-                                <div class="d-flex justify-content-between align-items-center">
-                                    <strong class="text-dark small">${step.place.name}</strong>
-                                    <span class="badge bg-light text-dark border">${step.time.start}</span>
+                            <div class="suggestion-card">
+                                <div class="suggestion-icon">
+                                    <i class="bi bi-geo-alt-fill"></i>
                                 </div>
-                                <div class="small text-muted text-truncate"><i class="bi bi-geo-alt"></i> ${step.place.address}</div>
-                                <div class="small fst-italic text-secondary mt-1">Mục đích: ${step.intent}</div>
+                                <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${step.place.name}</h6>
+                                <div class="small text-muted text-truncate mb-2">${step.place.address}</div>
+                                <div class="d-flex align-items-center justify-content-between">
+                                    <span class="badge bg-light text-dark border fw-normal">${step.time.start}</span>
+                                    <small class="text-primary fst-italic" style="font-size: 0.75rem;">
+                                        <i class="bi bi-lightbulb"></i> ${step.intent}
+                                    </small>
+                                </div>
                             </div>
                         `;
                     });
@@ -312,23 +558,29 @@
             }
         });
 
-        btnSave.addEventListener('click', function() {
-            if(currentPlanSteps.length === 0) return;
-            socket.emit('save_ai_plan', {
-                room_id: roomId,
-                plan_steps: currentPlanSteps
+        if(btnSave) {
+            btnSave.addEventListener('click', function() {
+                if(currentPlanSteps.length === 0) return;
+                const originalText = btnSave.innerHTML;
+                
+                socket.emit('save_ai_plan', {
+                    room_id: roomId,
+                    plan_steps: currentPlanSteps
+                });
+                
+                btnSave.disabled = true;
+                btnSave.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
             });
-            btnSave.disabled = true;
-            btnSave.innerText = "Đang lưu...";
-        });
+        }
 
         socket.on('plan_saved_success', function() {
             location.reload(); 
         });
 
         socket.on('plan_error', function(data) {
-            btnGen.disabled = false;
-            spinner.classList.add('d-none');
+            if(btnGen) btnGen.disabled = false;
+            if(sendIcon) sendIcon.classList.remove('d-none');
+            if(spinner) spinner.classList.add('d-none');
             alert('Lỗi: ' + data.message);
         });
     });

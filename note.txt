@@ -49,4 +49,5 @@ FRIENDUS
 ├── requirements.txt
 └── run.py
 
-Đây là project tree của tôi cho hỏi bạn cần files nào?, tôi sắp host online lên Onrender nên phải đảm bảo tính năng có thể hoạt động được với socketIO
+Đây là project tree của tôi cho hỏi bạn cần files nào?
+tôi cần bạn chỉ ra đoạn code tôi cần tô đen và thay đoạn code đó (bằng nút find and replace trong vscode)

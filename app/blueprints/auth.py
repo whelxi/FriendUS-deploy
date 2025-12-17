@@ -121,6 +121,8 @@ def google_login():
     redirect_uri = url_for('auth.google_callback', _external=True)
     return oauth.google.authorize_redirect(redirect_uri)
 
+# --- Google OAuth Routes (CẬP NHẬT) ---
+
 @auth_bp.route('/callback')
 def google_callback():
     try:
@@ -133,16 +135,24 @@ def google_callback():
 
     email = user_info.get('email')
     name = user_info.get('name')
+    picture = user_info.get('picture') # Lấy link avatar
     
     user = User.query.filter_by(email=email).first()
 
     if user:
+        # [NEW] Cập nhật avatar nếu user đăng nhập lại bằng Google
+        # Chỉ cập nhật nếu user đang dùng ảnh default (để tránh ghi đè ảnh họ tự upload)
+        if 'default.jpg' in user.image_file and picture:
+             user.image_file = picture
+             db.session.commit()
+             
         login_user(user)
         if not user.interests:
             return redirect(url_for('auth.onboarding'))
         flash('Logged in successfully via Google!', 'success')
         return redirect(url_for('main.index'))
     else:
+        # [NEW] Tạo user mới với Avatar Google
         base_username = name.replace(" ", "")
         username = base_username
         if User.query.filter_by(username=username).first():
@@ -153,8 +163,9 @@ def google_callback():
         new_user = User(
             username=username, 
             email=email,
+            image_file=picture if picture else 'default.jpg', # Lưu link ảnh
             password=random_password,
-            interests='' # Để trống
+            interests='' 
         )
         db.session.add(new_user)
         db.session.commit()
@@ -163,7 +174,7 @@ def google_callback():
         flash('Account created! Please select your interests.', 'success')
         return redirect(url_for('auth.onboarding'))
 
-# --- Account / Profile Routes ---
+# --- Account / Profile Routes (CẬP NHẬT) ---
 
 @auth_bp.route('/profile/<string:username>', methods=['GET', 'POST'])
 @login_required
@@ -181,7 +192,12 @@ def profile(username):
             
             current_user.username = form.username.data
             
-            # Cập nhật tags từ form (List -> String)
+            # [NEW] Lưu Bio (Bạn cần thêm field bio vào UpdateAccountForm trong forms.py nhé)
+            # Vì bạn không gửi file forms.py, tôi giả định bạn sẽ thêm field bio vào đó.
+            # Nếu form chưa có field bio, dòng dưới sẽ bị lỗi. Hãy kiểm tra forms.py.
+            if hasattr(form, 'bio'): 
+                current_user.bio = form.bio.data
+
             if form.interests.data:
                 current_user.interests = ','.join(form.interests.data)
             else:
@@ -194,7 +210,10 @@ def profile(username):
         elif request.method == 'GET':
             form.username.data = current_user.username
             form.email.data = current_user.email
-            # Load tags hiện tại vào form (String -> List) để hiển thị các checkbox đã chọn
+            # [NEW] Load Bio hiện tại
+            if hasattr(form, 'bio'):
+                form.bio.data = current_user.bio
+                
             if current_user.interests:
                 form.interests.data = current_user.interests.split(',')
 

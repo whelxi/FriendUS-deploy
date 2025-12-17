@@ -54,31 +54,38 @@ class User(UserMixin, db.Model):
     id = db.Column(db.Integer, primary_key=True)
     username = db.Column(db.String(20), unique=True, nullable=False)
     email = db.Column(db.String(120), unique=True, nullable=False)
-    # [NEW] Profile Picture
-    image_file = db.Column(db.String(20), nullable=False, default='default.jpg')
+    
+    # [UPDATED] Hỗ trợ lưu URL ảnh Google hoặc tên file local
+    image_file = db.Column(db.String(200), nullable=False, default='default.jpg') 
+    
+    # [NEW] Thêm Bio
+    bio = db.Column(db.String(250), nullable=True)
+
     password = db.Column(db.String(60), nullable=False) 
     
-    # Relationships
+    # Relationships (Giữ nguyên)
     posts = db.relationship('Post', backref='author', lazy=True)
     reviews = db.relationship('Review', backref='author', lazy=True)
     messages = db.relationship('Message', backref='author', lazy=True)
     
-    rooms = db.relationship('Room', secondary=room_members,
+    rooms = db.relationship('Room', secondary='room_members',
                             back_populates='members', lazy='dynamic')
     
     created_rooms = db.relationship('Room', back_populates='creator', lazy='dynamic')
 
-    favorite_locations = db.relationship('Location', secondary=user_favorites,
+    favorite_locations = db.relationship('Location', secondary='user_favorites',
                                          back_populates='favorited_by', lazy='dynamic')
     
-    # [NEW] Quan hệ bạn bè (Self-referential)
     friends = db.relationship('User', secondary=friendship,
-                              primaryjoin=(friendship.c.user_id == id),
-                              secondaryjoin=(friendship.c.friend_id == id),
+                              # [FIX] Dùng lambda và User.id để chỉ định rõ cột
+                              primaryjoin=lambda: friendship.c.user_id == User.id,
+                              secondaryjoin=lambda: friendship.c.friend_id == User.id,
                               backref=db.backref('friend_of', lazy='dynamic'), 
                               lazy='dynamic')
 
-    # [NEW] Các hàm helper xử lý bạn bè
+    interests = db.Column(db.String(500), default='')
+
+    # [NEW] Các hàm helper xử lý bạn bè (Giữ nguyên code cũ của bạn)
     def send_request(self, user):
         if not self.is_friend(user) and not self.has_sent_request(user):
             req = FriendRequest(sender_id=self.id, receiver_id=user.id)
@@ -89,10 +96,9 @@ class User(UserMixin, db.Model):
         req = FriendRequest.query.get(request_id)
         if req and req.receiver_id == self.id:
             req.status = 'accepted'
-            # Add to friends list (both ways)
             self.friends.append(req.sender)
             req.sender.friends.append(self)
-            db.session.delete(req) # Xóa request sau khi accept
+            db.session.delete(req) 
             db.session.commit()
 
     def remove_friend(self, user):
@@ -109,8 +115,6 @@ class User(UserMixin, db.Model):
 
     def has_received_request(self, user):
         return FriendRequest.query.filter_by(sender_id=user.id, receiver_id=self.id, status='pending').count() > 0
-
-    interests = db.Column(db.String(500), default='')
 
     def __repr__(self):
         return f"User('{self.username}', '{self.email}')"

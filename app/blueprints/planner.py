@@ -268,6 +268,33 @@ def delete_activity(id):
     db.session.commit()
     return redirect(url_for('planner.view_planner', room_id=room_id))
 
+@planner_bp.route('/room/<int:room_id>/edit_activity/<int:activity_id>', methods=['POST'])
+@login_required
+def edit_activity(room_id, activity_id):
+    room = Room.query.get_or_404(room_id)
+    act = Activity.query.get_or_404(activity_id)
+    
+    act.name = request.form.get('name')
+    act.location = request.form.get('location')
+    price = request.form.get('price')
+    act.price = float(price) if price else 0
+    
+    start_str = request.form.get('start_time')
+    end_str = request.form.get('end_time')
+
+    try:
+        if start_str:
+            act.start_time = datetime.strptime(start_str, '%Y-%m-%dT%H:%M')
+        if end_str:
+            act.end_time = datetime.strptime(end_str, '%Y-%m-%dT%H:%M')
+        
+        db.session.commit()
+        flash('Đã cập nhật hoạt động!', 'success')
+    except Exception as e:
+        flash(f'Lỗi cập nhật: {e}', 'danger')
+        
+    return redirect(url_for('planner.view_planner', room_id=room.id))
+
 @planner_bp.route('/room/<int:room_id>/add_constraint', methods=['POST'])
 @login_required
 def add_room_constraint(room_id):

@@ -11,15 +11,13 @@ class CommentForm(FlaskForm):
     submit = SubmitField('Post')
 
 class OnboardingForm(FlaskForm):
-    # Dùng SelectMultipleField để chọn nhiều tag
-    interests = SelectMultipleField('Choose your interests (1-5 tags)', choices=TAG_CHOICES)
+    # [FIX 1] Thêm validate_choice=False để tránh lỗi trên Render
+    interests = SelectMultipleField('Choose your interests (1-5 tags)', choices=TAG_CHOICES, validate_choice=False)
     submit = SubmitField('Get Started')
 
     def validate_interests(self, interests):
-        # Kiểm tra rỗng
         if not interests.data or len(interests.data) == 0:
             raise ValidationError('Please select at least one interest to continue.')
-        # Kiểm tra tối đa 5
         if len(interests.data) > 5:
             raise ValidationError('You can only select up to 5 interests.')
 
@@ -47,12 +45,11 @@ class PostForm(FlaskForm):
         FileAllowed(['jpg', 'png', 'jpeg', 'gif', 'mp4', 'mov', 'avi'], 'Images and Videos only!')
     ])
     
-    # [UPDATED] Bắt buộc chọn Tag cho bài viết
-    tags = SelectMultipleField('Tags', choices=TAG_CHOICES)
+    # [FIX 2] validate_choice=False
+    tags = SelectMultipleField('Tags', choices=TAG_CHOICES, validate_choice=False)
     
     submit = SubmitField('Post')
 
-    # [NEW] Validator bắt buộc chọn ít nhất 1 tag
     def validate_tags(self, tags):
         if not tags.data or len(tags.data) == 0:
             raise ValidationError('Please select at least one tag for your post.')
@@ -62,8 +59,11 @@ class UpdateAccountForm(FlaskForm):
     email = StringField('Email', validators=[DataRequired(), Email()])
     picture = FileField('Update Profile Picture', validators=[FileAllowed(['jpg', 'png', 'jpeg'])])
     
-    # [UPDATED] Bắt buộc chọn sở thích khi update
-    interests = SelectMultipleField('Update Interests', choices=TAG_CHOICES)
+    # [FIX 3 - MỚI] Thêm field Bio vào form để user có thể chỉnh sửa
+    bio = TextAreaField('Bio', validators=[Length(max=250)])
+
+    # [FIX 4 - QUAN TRỌNG] validate_choice=False sửa lỗi không lưu được interests
+    interests = SelectMultipleField('Update Interests', choices=TAG_CHOICES, validate_choice=False)
     
     submit = SubmitField('Update Account')
 
@@ -79,7 +79,6 @@ class UpdateAccountForm(FlaskForm):
             if user:
                 raise ValidationError('That email is already in use.')
 
-    # [NEW] Validator bắt buộc chọn ít nhất 1 interest
     def validate_interests(self, interests):
         if not interests.data or len(interests.data) == 0:
             raise ValidationError('Please select at least one interest.')
@@ -105,8 +104,8 @@ class CreateRoomForm(FlaskForm):
                          default='public',
                          validators=[DataRequired()])
     
-    # [UPDATED] Bắt buộc chọn tags
-    tags = SelectMultipleField('Tags (Max 5)', choices=TAG_CHOICES)
+    # [FIX 5] validate_choice=False
+    tags = SelectMultipleField('Tags (Max 5)', choices=TAG_CHOICES, validate_choice=False)
 
     submit = SubmitField('Create Room')
 
@@ -115,7 +114,6 @@ class CreateRoomForm(FlaskForm):
         if room:
             raise ValidationError('That room name is taken. Please choose another.')
 
-    # [UPDATED] Validate vừa bắt buộc chọn, vừa giới hạn max 5
     def validate_tags(self, tags):
         if not tags.data or len(tags.data) == 0:
             raise ValidationError('Please select at least one tag for the room.')
