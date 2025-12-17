@@ -1,18 +1,15 @@
-import eventlet
-eventlet.monkey_patch()
-
 from app import create_app, socketio
-from dotenv import load_dotenv
 import os
+from dotenv import load_dotenv
 
 load_dotenv()
 
 app = create_app()
 
 if __name__ == '__main__':
-    socketio.run(
-        app,
-        host='0.0.0.0',
-        port=int(os.environ.get('PORT', 5000)),
-        debug=True
-    )
+    print("----------------------------------------------------------------")
+    print("Server is running! Click the link below to open:")
+    print("http://127.0.0.1:5000")
+    print("----------------------------------------------------------------")
+    # Use socketio.run instead of app.run
+    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)

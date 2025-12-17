@@ -254,8 +254,7 @@
                 <div id="aiResultArea" class="d-none animate__animated animate__fadeIn">
                     <div class="d-flex justify-content-between align-items-center mb-3">
                         <span class="text-uppercase fw-bold text-secondary small" style="font-size: 0.7rem; letter-spacing: 1px;">Gợi ý phù hợp nhất</span>
-                        <span id="scoreBadge" class="match-score score-high shadow-sm"></span>
-                    </div>
+                        </div>
 
                     <div id="proposedTimeline" class="mb-3" style="max-height: 400px; overflow-y: auto; padding-right: 4px;">
                         </div>
@@ -477,7 +476,7 @@
         const sendIcon = btnGen ? btnGen.querySelector('.bi-send-fill') : null;
         const resultArea = document.getElementById('aiResultArea');
         const timelineList = document.getElementById('proposedTimeline');
-        const scoreBadge = document.getElementById('scoreBadge');
+        // Đã xóa const scoreBadge = ...
         const btnSave = document.getElementById('btnSaveToDb');
 
         if(btnGen) {
@@ -515,15 +514,7 @@
                 resultArea.classList.remove('d-none');
                 currentPlanSteps = response.data.steps;
                 
-                // Hiển thị Score đẹp hơn
-                const score = parseFloat(response.data.total_score);
-                const scorePercent = Math.round(score * 100);
-                scoreBadge.innerText = `Match: ${scorePercent}%`;
-                if(score > 0.7) {
-                    scoreBadge.className = 'match-score score-high shadow-sm';
-                } else {
-                    scoreBadge.className = 'match-score score-med shadow-sm';
-                }
+                // Đã xóa logic hiển thị Score ở đây
 
                 let html = '';
                 if(!currentPlanSteps || currentPlanSteps.length === 0) {

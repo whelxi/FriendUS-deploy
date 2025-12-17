@@ -10,8 +10,8 @@ services:
 
     startCommand: >
       gunicorn run:app
-      --worker-class eventlet
       --workers 1
+      --threads 4
       --bind 0.0.0.0:10000
 
     envVars:
