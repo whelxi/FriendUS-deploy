@@ -23,10 +23,48 @@ python-dotenv
 Pillow
 Markdown
 bleach
+PyYAML>=6.0
 
 # ---- Google Generative AI ----
 google-generativeai
+google-api-core
 grpcio
 protobuf
+
+# ---- Core ----
+Flask==3.0.3
+gunicorn
+eventlet
+
+# ---- Flask Extensions ----
+bootstrap-flask
+Flask-Login
+Flask-SocketIO
+Flask-SQLAlchemy
+Flask-WTF
+email-validator
+
+# ---- Database ----
+SQLAlchemy
+
+# ---- Auth / OAuth ----
+Authlib
+requests
+python-dotenv
+
+# ---- Utilities ----
+Pillow
+Markdown
+bleach
+PyYAML>=6.0
+
+# ---- Google Generative AI ----
+google-generativeai
 google-api-core
-scikit-learn
+grpcio
+protobuf
+
+# ---- Machine Learning / NLP ----
+scikit-learn>=1.4.0
+
+    
