@@ -75,7 +75,12 @@
                     <div class="col">
                         <div class="card h-100 border-0 shadow-sm friend-card hover-shadow">
                             <div class="card-body d-flex align-items-center p-3">
-                                <img src="{{ url_for('static', filename='profile_pics/' + user.image_file) }}" class="rounded-circle avatar-img me-3" width="60" height="60">
+                                {% if 'http' in user.image_file %}
+                                    <img src="{{ user.image_file }}" class="rounded-circle avatar-img me-3" width="60" height="60">
+                                {% else %}
+                                    <img src="{{ url_for('static', filename='profile_pics/' + user.image_file) }}" class="rounded-circle avatar-img me-3" width="60" height="60">
+                                {% endif %}
+                                
                                 <div class="flex-grow-1 overflow-hidden">
                                     <a href="{{ url_for('auth.profile', username=user.username) }}" class="text-decoration-none text-dark fw-bold h6 d-block text-truncate">{{ user.username }}</a>
                                     
@@ -114,7 +119,12 @@
                             {% for req in requests %}
                             <div class="bg-white p-3 rounded-3 shadow-sm border border-warning border-opacity-25">
                                 <div class="d-flex align-items-center mb-3">
-                                    <img src="{{ url_for('static', filename='profile_pics/' + req.sender.image_file) }}" class="rounded-circle me-3" width="45" height="45">
+                                    {% if 'http' in req.sender.image_file %}
+                                        <img src="{{ req.sender.image_file }}" class="rounded-circle me-3" width="45" height="45">
+                                    {% else %}
+                                        <img src="{{ url_for('static', filename='profile_pics/' + req.sender.image_file) }}" class="rounded-circle me-3" width="45" height="45">
+                                    {% endif %}
+
                                     <div class="lh-1">
                                         <a href="{{ url_for('auth.profile', username=req.sender.username) }}" class="fw-bold text-dark text-decoration-none">{{ req.sender.username }}</a>
                                         <div class="small text-muted mt-1">wants to be friends</div>
@@ -159,7 +169,11 @@
 
                                 <div class="text-center pt-2">
                                     <a href="{{ url_for('auth.profile', username=friend.username) }}">
-                                        <img src="{{ url_for('static', filename='profile_pics/' + friend.image_file) }}" class="rounded-circle avatar-img mb-3" width="80" height="80">
+                                        {% if 'http' in friend.image_file %}
+                                            <img src="{{ friend.image_file }}" class="rounded-circle avatar-img mb-3" width="80" height="80">
+                                        {% else %}
+                                            <img src="{{ url_for('static', filename='profile_pics/' + friend.image_file) }}" class="rounded-circle avatar-img mb-3" width="80" height="80">
+                                        {% endif %}
                                     </a>
                                     <h5 class="card-title mb-1">
                                         <a href="{{ url_for('auth.profile', username=friend.username) }}" class="text-decoration-none text-dark fw-bold">{{ friend.username }}</a>

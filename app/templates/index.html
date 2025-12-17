@@ -175,25 +175,46 @@
 <script>
 document.addEventListener('DOMContentLoaded', function() {
     
-    // --- 1. Xử lý LIKE bằng AJAX (Đã chỉnh sửa logic màu) ---
+    // --- 0. [NEW] Logic giới hạn Tags (Max 5, Min 1) ---
+    const tagCheckboxes = document.querySelectorAll('.tag-checkbox');
+    const postForm = document.querySelector('form'); // Form đăng bài
+
+    // Hàm kiểm tra Max 5
+    tagCheckboxes.forEach(checkbox => {
+        checkbox.addEventListener('change', function() {
+            const checkedCount = document.querySelectorAll('.tag-checkbox:checked').length;
+            if (checkedCount > 5) {
+                this.checked = false; // Bỏ chọn ngay lập tức
+                alert("Bạn chỉ được chọn tối đa 5 chủ đề (Tags)!");
+            }
+        });
+    });
+
+    // Hàm kiểm tra Min 1 khi Submit Form
+    if (postForm) {
+        postForm.addEventListener('submit', function(e) {
+            const checkedCount = document.querySelectorAll('.tag-checkbox:checked').length;
+            if (checkedCount === 0) {
+                e.preventDefault(); // Chặn gửi form
+                alert("Vui lòng chọn ít nhất 1 chủ đề (Tag) cho bài viết!");
+            }
+        });
+    }
+
+    // --- 1. Xử lý LIKE bằng AJAX ---
     document.querySelectorAll('.like-btn').forEach(btn => {
         btn.addEventListener('click', function() {
             const postId = this.dataset.postId;
             const icon = this.querySelector('i');
             const button = this; 
-            // Cần tìm span like count tổng thể để cập nhật
             const totalLikeSpan = button.closest('.post-card').querySelector('.card-footer .like-count');
 
             fetch(`/post/${postId}/like`, { method: 'POST' })
-            .then(res => res.json())
+            .then(res => res.json())    
             .then(data => {
                 if(data.status === 'success') {
-                    // Cập nhật số lượng tổng thể
-                    if(totalLikeSpan) {
-                         totalLikeSpan.innerText = data.count;
-                    }
+                    if(totalLikeSpan) totalLikeSpan.innerText = data.count;
 
-                    // Cập nhật icon và class màu của nút bấm
                     if (data.action === 'liked') {
                         icon.classList.remove('bi-heart');
                         icon.classList.add('bi-heart-fill');
@@ -208,9 +229,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    
-    
-    // --- 3. Giữ lại logic theo dõi sở thích khi click vào Tag ---
+    // --- 3. Logic theo dõi sở thích khi click vào Tag ---
     document.querySelectorAll('.post-tag').forEach(tag => {
         tag.addEventListener('click', function() {
             const tagText = this.innerText.replace('#', '');
