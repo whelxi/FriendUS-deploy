@@ -1,96 +1,190 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="container py-4">
-    <div class="card mb-4 shadow-sm">
-        <div class="card-body">
-            <h5 class="card-title mb-3"><i class="bi bi-search"></i> Find Friends</h5>
-            <form action="{{ url_for('main.friends') }}" method="GET" class="d-flex">
-                <input type="text" name="q" class="form-control me-2" placeholder="Enter username or email..." value="{{ search_query if search_query }}">
-                <button type="submit" class="btn btn-primary">Search</button>
-            </form>
+<style>
+    .hover-shadow:hover {
+        transform: translateY(-3px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+        transition: all 0.3s ease;
+    }
+    .friend-card {
+        border: none;
+        border-radius: 15px;
+        background: #fff;
+        transition: all 0.3s ease;
+    }
+    .avatar-wrapper {
+        position: relative;
+        display: inline-block;
+    }
+    .avatar-img {
+        object-fit: cover;
+        border: 3px solid #f8f9fa;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.1);
+    }
+    .section-title {
+        font-weight: 700;
+        color: #495057;
+        margin-bottom: 1.5rem;
+        position: relative;
+        padding-left: 15px;
+    }
+    .section-title::before {
+        content: '';
+        position: absolute;
+        left: 0;
+        top: 50%;
+        transform: translateY(-50%);
+        height: 25px;
+        width: 5px;
+        background-color: #0d6efd; /* Primary color */
+        border-radius: 5px;
+    }
+    .bg-gradient-search {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+        border-radius: 15px;
+        color: white;
+    }
+</style>
 
-            {% if search_results %}
-                <div class="mt-4">
-                    <h6>Search Results:</h6>
-                    <div class="list-group">
-                        {% for user in search_results %}
-                            <div class="list-group-item d-flex justify-content-between align-items-center">
-                                <div class="d-flex align-items-center">
-                                    <img src="{{ url_for('static', filename='profile_pics/' + user.image_file) }}" class="rounded-circle me-2" width="40" height="40">
-                                    <a href="{{ url_for('auth.profile', username=user.username) }}" class="text-decoration-none fw-bold text-dark">{{ user.username }}</a>
-                                </div>
-                                
-                                <div>
-                                    {% if current_user.is_friend(user) %}
-                                        <span class="badge bg-success">Friend</span>
-                                    {% elif current_user.has_sent_request(user) %}
-                                        <span class="badge bg-secondary">Request Sent</span>
-                                    {% elif current_user.has_received_request(user) %}
-                                        <a href="{{ url_for('main.friends') }}" class="btn btn-sm btn-warning">Check Requests</a>
-                                    {% else %}
-                                        <a href="{{ url_for('main.send_friend_request', user_id=user.id) }}" class="btn btn-sm btn-outline-primary"><i class="bi bi-person-plus-fill"></i> Add</a>
-                                    {% endif %}
-                                </div>
-                            </div>
-                        {% endfor %}
+<div class="container py-5">
+    
+    <div class="card mb-5 border-0 shadow-sm bg-gradient-search">
+        <div class="card-body p-4 p-lg-5 text-center text-lg-start d-lg-flex align-items-center justify-content-between">
+            <div class="mb-3 mb-lg-0">
+                <h2 class="fw-bold mb-1"><i class="bi bi-people-fill me-2"></i>Find Friends</h2>
+                <p class="mb-0 opacity-75">Connect with people you know on FriendUS</p>
+            </div>
+            <div class="flex-grow-1 ms-lg-5" style="max-width: 600px;">
+                <form action="{{ url_for('main.friends') }}" method="GET" class="position-relative">
+                    <div class="input-group input-group-lg">
+                        <span class="input-group-text border-0 bg-white text-primary ps-4"><i class="bi bi-search"></i></span>
+                        <input type="text" name="q" class="form-control border-0 ps-2 rounded-end" placeholder="Search by username or email..." value="{{ search_query if search_query }}" style="border-radius: 0 50px 50px 0;">
+                        <button type="submit" class="btn btn-light fw-bold px-4 rounded-pill ms-2 shadow-sm">Search</button>
                     </div>
-                </div>
-            {% elif search_query %}
-                <p class="text-muted mt-3">No users found matching "{{ search_query }}"</p>
-            {% endif %}
+                </form>
+            </div>
         </div>
     </div>
 
-    <div class="row">
-        <div class="col-md-5">
-            <h4 class="mb-3">Friend Requests</h4>
-            {% if requests %}
-                {% for req in requests %}
-                <div class="card mb-2 border-warning">
-                    <div class="card-body d-flex justify-content-between align-items-center p-2">
-                        <div class="d-flex align-items-center">
-                            <img src="{{ url_for('static', filename='profile_pics/' + req.sender.image_file) }}" class="rounded-circle me-2" width="40" height="40">
-                            <div>
-                                <strong>{{ req.sender.username }}</strong>
-                                <br><small class="text-muted">Sent a request</small>
+    {% if search_results %}
+        <div class="mb-5 animate__animated animate__fadeIn">
+            <h5 class="section-title">Found {{ search_results|length }} Result(s)</h5>
+            <div class="row row-cols-1 row-cols-md-2 row-cols-lg-3 g-3">
+                {% for user in search_results %}
+                    <div class="col">
+                        <div class="card h-100 border-0 shadow-sm friend-card hover-shadow">
+                            <div class="card-body d-flex align-items-center p-3">
+                                <img src="{{ url_for('static', filename='profile_pics/' + user.image_file) }}" class="rounded-circle avatar-img me-3" width="60" height="60">
+                                <div class="flex-grow-1 overflow-hidden">
+                                    <a href="{{ url_for('auth.profile', username=user.username) }}" class="text-decoration-none text-dark fw-bold h6 d-block text-truncate">{{ user.username }}</a>
+                                    
+                                    <div class="mt-1">
+                                        {% if current_user.is_friend(user) %}
+                                            <span class="badge bg-success-subtle text-success rounded-pill"><i class="bi bi-check-circle-fill me-1"></i>Friend</span>
+                                        {% elif current_user.has_sent_request(user) %}
+                                            <span class="badge bg-secondary-subtle text-secondary rounded-pill"><i class="bi bi-hourglass-split me-1"></i>Sent</span>
+                                        {% elif current_user.has_received_request(user) %}
+                                            <a href="{{ url_for('main.friends') }}" class="badge bg-warning text-dark text-decoration-none rounded-pill">Check Requests</a>
+                                        {% else %}
+                                            <a href="{{ url_for('main.send_friend_request', user_id=user.id) }}" class="btn btn-sm btn-primary rounded-pill px-3"><i class="bi bi-person-plus-fill me-1"></i> Add Friend</a>
+                                        {% endif %}
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div>
-                            <a href="{{ url_for('main.accept_friend_request', req_id=req.id) }}" class="btn btn-sm btn-success"><i class="bi bi-check"></i></a>
-                            <a href="{{ url_for('main.reject_friend_request', req_id=req.id) }}" class="btn btn-sm btn-outline-danger"><i class="bi bi-x"></i></a>
-                        </div>
                     </div>
-                </div>
                 {% endfor %}
-            {% else %}
-                <div class="alert alert-light text-center text-muted">No pending requests.</div>
-            {% endif %}
+            </div>
+        </div>
+    {% elif search_query %}
+        <div class="text-center py-5 text-muted">
+            <i class="bi bi-search display-1 opacity-25"></i>
+            <p class="mt-3 fs-5">We couldn't find anyone matching "<strong>{{ search_query }}</strong>"</p>
+        </div>
+    {% endif %}
+
+    <div class="row g-4">
+        <div class="col-lg-4">
+            <div class="card border-0 shadow-sm h-100" style="border-radius: 15px; background-color: #fffbf0;"> <div class="card-body">
+                    <h4 class="fw-bold mb-4 text-warning-emphasis"><i class="bi bi-bell-fill me-2"></i>Requests <span class="badge bg-warning text-dark rounded-circle ms-1">{{ requests|length if requests else 0 }}</span></h4>
+                    
+                    {% if requests %}
+                        <div class="d-flex flex-column gap-3">
+                            {% for req in requests %}
+                            <div class="bg-white p-3 rounded-3 shadow-sm border border-warning border-opacity-25">
+                                <div class="d-flex align-items-center mb-3">
+                                    <img src="{{ url_for('static', filename='profile_pics/' + req.sender.image_file) }}" class="rounded-circle me-3" width="45" height="45">
+                                    <div class="lh-1">
+                                        <a href="{{ url_for('auth.profile', username=req.sender.username) }}" class="fw-bold text-dark text-decoration-none">{{ req.sender.username }}</a>
+                                        <div class="small text-muted mt-1">wants to be friends</div>
+                                    </div>
+                                </div>
+                                <div class="d-grid gap-2 d-flex">
+                                    <a href="{{ url_for('main.accept_friend_request', req_id=req.id) }}" class="btn btn-success btn-sm flex-grow-1 rounded-pill"><i class="bi bi-check-lg"></i> Confirm</a>
+                                    <a href="{{ url_for('main.reject_friend_request', req_id=req.id) }}" class="btn btn-outline-danger btn-sm flex-grow-1 rounded-pill"><i class="bi bi-x-lg"></i> Delete</a>
+                                </div>
+                            </div>
+                            {% endfor %}
+                        </div>
+                    {% else %}
+                        <div class="text-center py-4 text-muted opacity-75">
+                            <i class="bi bi-inbox fs-1 d-block mb-2"></i>
+                            <small>No pending requests</small>
+                        </div>
+                    {% endif %}
+                </div>
+            </div>
         </div>
 
-        <div class="col-md-7">
-            <h4 class="mb-3">My Friends ({{ friends|length }})</h4>
+        <div class="col-lg-8">
+            <div class="d-flex justify-content-between align-items-end mb-3">
+                <h4 class="section-title mb-0">My Friends <span class="text-muted fw-light fs-5">({{ friends|length }})</span></h4>
+            </div>
+
             {% if friends %}
                 <div class="row row-cols-1 row-cols-md-2 g-3">
                     {% for friend in friends %}
                     <div class="col">
-                        <div class="card h-100 shadow-sm">
-                            <div class="card-body d-flex align-items-center">
-                                <img src="{{ url_for('static', filename='profile_pics/' + friend.image_file) }}" class="rounded-circle me-3" width="50" height="50">
-                                <div>
-                                    <a href="{{ url_for('auth.profile', username=friend.username) }}" class="h6 text-decoration-none text-dark stretched-link">{{ friend.username }}</a>
-                                    <p class="small text-muted mb-0">{{ friend.email }}</p>
+                        <div class="card h-100 friend-card shadow-sm hover-shadow border-0">
+                            <div class="card-body position-relative">
+                                <div class="dropdown position-absolute top-0 end-0 mt-2 me-2">
+                                    <button class="btn btn-link text-muted p-0" type="button" data-bs-toggle="dropdown" aria-expanded="false">
+                                        <i class="bi bi-three-dots-vertical"></i>
+                                    </button>
+                                    <ul class="dropdown-menu dropdown-menu-end border-0 shadow">
+                                        <li><a class="dropdown-item text-danger" href="{{ url_for('main.unfriend', user_id=friend.id) }}"><i class="bi bi-person-x me-2"></i>Unfriend</a></li>
+                                    </ul>
                                 </div>
-                            </div>
-                            <div class="card-footer bg-white border-top-0 text-end position-relative">
-                                <a href="{{ url_for('main.unfriend', user_id=friend.id) }}" class="btn btn-sm btn-outline-danger position-relative" style="z-index: 2;">Unfriend</a>
+
+                                <div class="text-center pt-2">
+                                    <a href="{{ url_for('auth.profile', username=friend.username) }}">
+                                        <img src="{{ url_for('static', filename='profile_pics/' + friend.image_file) }}" class="rounded-circle avatar-img mb-3" width="80" height="80">
+                                    </a>
+                                    <h5 class="card-title mb-1">
+                                        <a href="{{ url_for('auth.profile', username=friend.username) }}" class="text-decoration-none text-dark fw-bold">{{ friend.username }}</a>
+                                    </h5>
+                                    <p class="card-text text-muted small mb-3"><i class="bi bi-envelope me-1"></i>{{ friend.email }}</p>
+                                    
+                                    <div class="d-grid">
+                                        <a href="{{ url_for('auth.profile', username=friend.username) }}" class="btn btn-outline-primary btn-sm rounded-pill">View Profile</a>
+                                    </div>
+                                </div>
                             </div>
                         </div>
                     </div>
                     {% endfor %}
                 </div>
             {% else %}
-                <div class="alert alert-info">You haven't added any friends yet. Use the search bar above!</div>
+                <div class="card border-0 shadow-sm bg-light text-center py-5">
+                    <div class="card-body">
+                        <div class="mb-3">
+                            <span class="display-4 text-muted">👋</span>
+                        </div>
+                        <h5>It's quiet here...</h5>
+                        <p class="text-muted">You haven't added any friends yet. Use the search bar above to find your crew!</p>
+                    </div>
+                </div>
             {% endif %}
         </div>
     </div>

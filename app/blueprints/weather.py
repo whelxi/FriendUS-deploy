@@ -11,6 +11,7 @@ weather_bp = Blueprint('weather', __name__)
 # ==============================================================================
 class OpenMeteoClient:
     BASE_URL = "https://api.open-meteo.com/v1/forecast"
+    AQI_URL = "https://air-quality-api.open-meteo.com/v1/air-quality"
     GEOCODING_URL = "https://geocoding-api.open-meteo.com/v1/search"
 
     DEFAULT_DAILY_VARS = ['temperature_2m_max', 'temperature_2m_min', 'precipitation_sum', 'weathercode', 'wind_speed_10m_max']
@@ -65,8 +66,18 @@ class OpenMeteoClient:
             print(f"Search error: {e}")
             return []
 
+    def _get_aqi_info(self, aqi: int) -> Tuple[str, str, str]:
+        """Trả về (Mô tả, Mã màu HEX, Màu chữ)"""
+        if aqi <= 50: return "Tốt", "#00e400", "#000000"
+        if aqi <= 100: return "Trung bình", "#ffff00", "#000000"
+        if aqi <= 150: return "Kém", "#ff7e00", "#ffffff"
+        if aqi <= 200: return "Xấu", "#ff0000", "#ffffff"
+        if aqi <= 300: return "Rất xấu", "#8f3f97", "#ffffff"
+        return "Nguy hại", "#7e0023", "#ffffff"
+
     def get_full_forecast(self, lat: float, lon: float) -> Dict[str, Any]:
-        params = {
+        # 1. Lấy dữ liệu Thời tiết
+        weather_params = {
             'latitude': lat, 'longitude': lon,
             'current': ",".join(self.DEFAULT_CURRENT_VARS),
             'daily': ",".join(self.DEFAULT_DAILY_VARS),
@@ -74,10 +85,25 @@ class OpenMeteoClient:
             'timezone': self.default_timezone,
             'forecast_days': 3, 'temperature_unit': 'celsius', 'wind_speed_unit': 'kmh'
         }
+        
+        # 2. Lấy dữ liệu AQI (US Standard)
+        aqi_params = {
+            'latitude': lat, 'longitude': lon,
+            'current': 'us_aqi',
+            'timezone': self.default_timezone
+        }
+
         try:
-            response = requests.get(self.BASE_URL, params=params)
-            response.raise_for_status()
-            return response.json()
+            w_res = requests.get(self.BASE_URL, params=weather_params)
+            w_res.raise_for_status()
+            weather_data = w_res.json()
+
+            a_res = requests.get(self.AQI_URL, params=aqi_params)
+            aqi_data = a_res.json() if a_res.status_code == 200 else {}
+            
+            # Merge AQI vào weather data để xử lý chung
+            weather_data['aqi_current'] = aqi_data.get('current', {}).get('us_aqi', 0)
+            return weather_data
         except Exception as e:
             return {"error": str(e)}
 
@@ -93,6 +119,10 @@ class OpenMeteoClient:
         w_max = daily['wind_speed_10m_max'][0] if daily.get('time') else 0
         risks = self._analyze_daily_risk(t_max, t_min, precip, w_max)
 
+        # Xử lý AQI
+        aqi_val = raw_data.get('aqi_current', 0)
+        aqi_desc, aqi_bg, aqi_text = self._get_aqi_info(aqi_val)
+
         current_obj = {
             'temperature': current.get('temperature_2m'),
             'weather_desc': self._map_weather_code(current.get('weather_code', 0)),
@@ -100,7 +130,11 @@ class OpenMeteoClient:
             'precipitation_sum': precip,
             'wind_max_kmh': current.get('wind_speed_10m', 0),
             'temp_max': t_max,
-            'temp_min': t_min
+            'temp_min': t_min,
+            'aqi_val': aqi_val,
+            'aqi_desc': aqi_desc,
+            'aqi_bg': aqi_bg,
+            'aqi_text': aqi_text
         }
 
         processed_hourly = []

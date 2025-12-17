@@ -1,3 +1,5 @@
+import os
+import time
 from flask import Flask
 from config import Config
 from app.extensions import db, login_manager, bootstrap, socketio, oauth
@@ -6,6 +8,14 @@ from app.events import register_socketio_events
 from werkzeug.middleware.proxy_fix import ProxyFix 
 
 def create_app(config_class=Config):
+    # --- [CẬP NHẬT] FIX TIMEZONE TRÊN RENDER ---
+    # Render chạy trên Linux, cần set lại giờ hệ thống của Python theo biến TZ
+    tz = os.environ.get('TZ')
+    if tz:
+        os.environ['TZ'] = tz
+        time.tzset()  # Lệnh này bắt buộc Python cập nhật lại múi giờ
+    # -------------------------------------------
+
     app = Flask(__name__)
     app.config.from_object(config_class)
 

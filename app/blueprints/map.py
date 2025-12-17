@@ -88,12 +88,15 @@ def api_route():
         return jsonify({"error": "Missing coordinates"}), 400
 
     url = "https://maps.vietmap.vn/api/route"
+    # [UPDATE] Nhận vehicle từ request, mặc định là car
+    vehicle_type = request.args.get('vehicle', 'car')
+    
     params = {
         'api-version': '1.1',
         'apikey': service_key,
         'point': [p1, p2], 
-        'vehicle': 'car',
-        'points_encoded': False  # [CRITICAL FIX] Request raw GeoJSON coordinates
+        'vehicle': vehicle_type,
+        'points_encoded': False 
     }
     
     try:

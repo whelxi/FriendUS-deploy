@@ -6,7 +6,8 @@
 <style>
     /* --- Base --- */
     body, html { overflow: hidden; } 
-    #map-container { position: relative; width: 100%; height: calc(100vh - 56px); font-family: 'Roboto', 'Segoe UI', sans-serif; }
+    /* [UPDATE] Thêm overflow: hidden để cắt bỏ phần box bị đẩy xuống dưới, làm mất thanh cuộn */
+    #map-container { position: relative; width: 100%; height: calc(100vh - 56px); font-family: 'Roboto', 'Segoe UI', sans-serif; overflow: hidden; }
     #map { width: 100%; height: 100%; }
 
     /* --- Floating Search Bar (State A) --- */
@@ -132,7 +133,6 @@
     
     <div id="floating-search-bar">
         <div class="search-container-pill">
-            <button class="menu-btn"><i class="bi bi-list"></i></button>
             <input type="text" id="main-search-input" class="search-input" placeholder="Search VietMap..." autocomplete="off">
             <button class="search-btn-grey" id="btn-trigger-search" title="Search"><i class="bi bi-search"></i></button>
             <div class="v-divider"></div>
@@ -156,10 +156,10 @@
         </div>
 
         <div class="mode-selector">
-            <button class="mode-btn active" title="Driving"><i class="bi bi-car-front-fill"></i></button>
-            <button class="mode-btn" title="Transit"><i class="bi bi-train-front-fill"></i></button>
-            <button class="mode-btn" title="Walking"><i class="bi bi-person-walking"></i></button>
-            <button class="mode-btn" title="Cycling"><i class="bi bi-bicycle"></i></button>
+            <button class="mode-btn active" data-mode="car" title="Driving"><i class="bi bi-car-front-fill"></i></button>
+            <button class="mode-btn" data-mode="motorcycle" title="Motorcycle"><i class="bi bi-bicycle" style="font-weight:bold;"></i></button>
+            <button class="mode-btn" data-mode="foot" title="Walking"><i class="bi bi-person-walking"></i></button>
+            <button class="mode-btn" data-mode="bike" title="Cycling"><i class="bi bi-bicycle"></i></button>
         </div>
 
         <div id="route-panel-content">
@@ -207,8 +207,9 @@ class MapManager {
     constructor() {
         this.config = JSON.parse(document.getElementById('map-config').textContent);
         this.map = null;
-        this.markers = { start: null, end: null, search: null, user: null }; // Track markers
+        this.markers = { start: null, end: null, search: null, user: null }; 
         this.searchTimeout = null;
+        this.transportMode = 'car'; // [UPDATE] Mặc định là car
         this.mode = 'search'; 
         this.activeInput = 'main'; 
         this.locations = { start: null, end: null };
@@ -270,6 +271,24 @@ class MapManager {
 
         document.getElementById('btn-trigger-search').onclick = () => this.performSearch(this.dom.inputs.main.value);
         this.map.on('click', (e) => this.handleMapClick(e));
+
+        // [UPDATE] Xử lý chọn phương tiện
+        const modeBtns = document.querySelectorAll('.mode-btn');
+        modeBtns.forEach(btn => {
+            btn.onclick = () => {
+                // Xóa active cũ
+                modeBtns.forEach(b => b.classList.remove('active'));
+                // Active nút mới
+                btn.classList.add('active');
+                // Cập nhật mode
+                this.transportMode = btn.getAttribute('data-mode');
+                
+                // Nếu đã có điểm đi/đến thì tính lại đường ngay
+                if (this.locations.start && this.locations.end) {
+                    this.calculateRoute();
+                }
+            };
+        });
     }
 
     async handleMapClick(e) {
@@ -446,7 +465,9 @@ class MapManager {
         this.dom.routePanel.innerHTML = '<div class="p-4 text-center text-muted">Calculatng route...</div>';
 
         try {
-            const res = await fetch(`${this.config.urls.route}?point1=${p1}&point2=${p2}`);
+            // [UPDATE] Thêm tham số vehicle vào URL
+            const url = `${this.config.urls.route}?point1=${p1}&point2=${p2}&vehicle=${this.transportMode}`;
+            const res = await fetch(url);
             const data = await res.json();
 
             if (data.paths && data.paths[0]) {

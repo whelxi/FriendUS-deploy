@@ -1,51 +1,93 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="row mb-4">
-    <div class="col-md-8">
-        <h2 class="mb-3"><i class="bi bi-chat-square-text-fill"></i> Chat Lobby</h2>
-        <p class="text-muted">Join existing rooms or create your own to start planning trips!</p>
-    </div>
-    <div class="col-md-4 text-end">
-        <button type="button" class="btn btn-primary" data-bs-toggle="modal" data-bs-target="#createRoomModal">
-            <i class="bi bi-plus-circle"></i> Create New Room
+<style>
+    /* Hiệu ứng nhấc thẻ lên khi di chuột */
+    .hover-lift {
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .hover-lift:hover {
+        transform: translateY(-5px);
+        box-shadow: 0 .5rem 1rem rgba(0,0,0,.15)!important;
+    }
+    
+    /* Style cơ bản cho Card */
+    .room-card {
+        border: none;
+        background: #fff;
+    }
+    
+    /* Gradient nền header */
+    .bg-gradient-primary {
+        background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    }
+    
+    /* Badge tags nhỏ gọn */
+    .tag-badge {
+        font-size: 0.75rem;
+        font-weight: 600;
+    }
+
+    /* --- FIX LỖI MÀU CHỮ TAB --- */
+    /* Khi tab được chọn (Active): Chữ trắng, nền xanh */
+    .nav-pills .nav-link.active {
+        color: #ffffff !important;
+        background-color: #0d6efd !important;
+    }
+    .nav-pills .nav-link.active i {
+        color: #ffffff !important;
+    }
+
+    /* Khi tab chưa chọn: Chữ xám đậm, dễ nhìn trên nền trắng/xám nhạt */
+    .nav-pills .nav-link {
+        color: #495057;
+        font-weight: 700; /* In đậm để dễ đọc */
+    }
+</style>
+
+<div class="p-5 mb-4 bg-gradient-primary rounded-4 text-white shadow position-relative overflow-hidden">
+    <div class="position-relative z-index-1">
+        <h1 class="display-5 fw-bold"><i class="bi bi-chat-square-text-fill"></i> Chat Lobby</h1>
+        <p class="col-md-8 fs-5 opacity-75">Connect with friends, plan your next adventure, or discover new communities.</p>
+        <button type="button" class="btn btn-light text-primary fw-bold px-4 py-2 mt-2 rounded-pill shadow-sm" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+            <i class="bi bi-plus-lg me-1"></i> Create New Room
         </button>
     </div>
+    <i class="bi bi-globe position-absolute bottom-0 end-0 text-white opacity-10" style="font-size: 15rem; transform: translate(30%, 30%);"></i>
 </div>
 
 <div class="modal fade" id="createRoomModal" tabindex="-1" aria-labelledby="createRoomModalLabel" aria-hidden="true">
-    <div class="modal-dialog modal-lg"> <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title" id="createRoomModalLabel">Create a New Room</h5>
+    <div class="modal-dialog modal-dialog-centered modal-lg"> 
+        <div class="modal-content border-0 shadow-lg rounded-4">
+            <div class="modal-header bg-light border-0">
+                <h5 class="modal-title fw-bold text-primary" id="createRoomModalLabel"><i class="bi bi-magic"></i> Create a New Room</h5>
                 <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <form method="POST" action="">
                 {{ form.hidden_tag() }}
-                <div class="modal-body">
-                    <div class="mb-3">
-                        {{ form.name.label(class="form-label fw-bold") }}
+                <div class="modal-body p-4">
+                    <div class="form-floating mb-3">
                         {% if form.name.errors %}
-                            {{ form.name(class="form-control is-invalid") }}
+                            {{ form.name(class="form-control is-invalid", placeholder="Room Name") }}
                             <div class="invalid-feedback">
-                                {% for error in form.name.errors %}
-                                    <span>{{ error }}</span>
-                                {% endfor %}
+                                {% for error in form.name.errors %}<span>{{ error }}</span>{% endfor %}
                             </div>
                         {% else %}
-                            {{ form.name(class="form-control") }}
+                            {{ form.name(class="form-control", placeholder="Room Name") }}
                         {% endif %}
+                        {{ form.name.label(class="fw-bold") }}
                     </div>
 
-                    <div class="mb-3">
-                        {{ form.description.label(class="form-label fw-bold") }}
-                        {{ form.description(class="form-control", rows="3") }}
+                    <div class="form-floating mb-3">
+                        {{ form.description(class="form-control", style="height: 100px", placeholder="Description") }}
+                        {{ form.description.label(class="fw-bold") }}
                     </div>
 
-                    <div class="mb-3">
-                        <label class="form-label fw-bold"><i class="bi bi-shield-lock"></i> Privacy Setting</label>
-                        <div class="d-flex gap-3">
+                    <div class="mb-4 p-3 bg-light rounded-3 border">
+                        <label class="form-label fw-bold d-block mb-2"><i class="bi bi-shield-lock-fill text-muted"></i> Privacy Setting</label>
+                        <div class="d-flex gap-4">
                             {% for subfield in form.privacy %}
-                                <div class="form-check">
+                                <div class="form-check form-check-inline">
                                     {{ subfield(class="form-check-input") }}
                                     {{ subfield.label(class="form-check-label") }}
                                 </div>
@@ -54,29 +96,26 @@
                     </div>
 
                     <div class="mb-3">
-                        <label class="form-label fw-bold small text-muted"><i class="bi bi-tags-fill"></i> Select Tags (Max 5):</label>
-                        <div class="d-flex flex-wrap gap-1" id="room-tags-container">
+                        <label class="form-label fw-bold small text-muted text-uppercase mb-2"><i class="bi bi-tags-fill"></i> Select Tags (Max 5)</label>
+                        <div class="d-flex flex-wrap gap-2" id="room-tags-container">
                             {% for value, label in form.tags.choices %}
                                 <input type="checkbox" class="btn-check room-tag-checkbox" 
                                        name="tags" id="tag_room_{{ loop.index }}" value="{{ value }}" autocomplete="off">
-                                <label class="btn btn-outline-primary btn-sm rounded-pill" for="tag_room_{{ loop.index }}">
+                                <label class="btn btn-outline-primary btn-sm rounded-pill px-3" for="tag_room_{{ loop.index }}">
                                     {{ label }}
                                 </label>
                             {% endfor %}
                         </div>
                         {% if form.tags.errors %}
-                            <div class="text-danger small mt-1">
-                                {% for error in form.tags.errors %}
-                                    <span>{{ error }}</span>
-                                {% endfor %}
+                            <div class="text-danger small mt-2">
+                                {% for error in form.tags.errors %}<span>{{ error }}</span>{% endfor %}
                             </div>
                         {% endif %}
                     </div>
-
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    {{ form.submit(class="btn btn-primary") }}
+                <div class="modal-footer border-0 pt-0 pe-4 pb-4">
+                    <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Cancel</button>
+                    {{ form.submit(class="btn btn-primary rounded-pill px-4 shadow-sm") }}
                 </div>
             </form>
         </div>
@@ -84,128 +123,142 @@
 </div>
 
 {% if my_invitations %}
-<div class="card border-info mb-4 shadow-sm">
-    <div class="card-header bg-info text-white d-flex justify-content-between align-items-center">
-        <span><i class="bi bi-envelope-paper-heart-fill"></i> <strong>Pending Invitations</strong></span>
-        <span class="badge bg-white text-info">{{ my_invitations|length }}</span>
-    </div>
-    <ul class="list-group list-group-flush">
+<div class="mb-5">
+    <h5 class="fw-bold text-muted mb-3"><i class="bi bi-envelope-paper-heart-fill text-danger"></i> Pending Invitations <span class="badge bg-danger rounded-pill">{{ my_invitations|length }}</span></h5>
+    <div class="row row-cols-1 row-cols-lg-2 g-3">
         {% for invite in my_invitations %}
-        <li class="list-group-item d-flex justify-content-between align-items-center">
-            <div>
-                <span class="fw-bold text-primary">{{ invite.inviter.username }}</span> 
-                <span class="text-muted">invited you to join trip:</span>
-                <span class="badge bg-secondary ms-1">{{ invite.room.name }}</span>
+        <div class="col">
+            <div class="card border-0 shadow-sm rounded-4 h-100" style="background-color: #fff5f5; border-left: 5px solid #dc3545 !important;">
+                <div class="card-body d-flex justify-content-between align-items-center">
+                    <div>
+                        <div class="mb-1">
+                            <span class="fw-bold text-dark">{{ invite.inviter.username }}</span> 
+                            <span class="text-muted small">invited you to:</span>
+                        </div>
+                        <h6 class="text-primary fw-bold mb-0"><i class="bi bi-airplane-fill"></i> {{ invite.room.name }}</h6>
+                    </div>
+                    <div class="d-flex flex-column gap-2">
+                        <form class="d-inline" action="{{ url_for('chat.respond_invite', req_id=invite.id, action='accept') }}" method="POST">
+                            <button class="btn btn-success btn-sm fw-bold w-100 rounded-pill shadow-sm"><i class="bi bi-check-lg"></i> Accept</button>
+                        </form>
+                        <form class="d-inline" action="{{ url_for('chat.respond_invite', req_id=invite.id, action='reject') }}" method="POST">
+                            <button class="btn btn-outline-secondary btn-sm w-100 rounded-pill border-0"><i class="bi bi-x-lg"></i> Decline</button>
+                        </form>
+                    </div>
+                </div>
             </div>
-            <div>
-                <form class="d-inline" action="{{ url_for('chat.respond_invite', req_id=invite.id, action='accept') }}" method="POST">
-                    <button class="btn btn-success btn-sm fw-bold me-2 shadow-sm">
-                        <i class="bi bi-check-lg"></i> Accept
-                    </button>
-                </form>
-                <form class="d-inline" action="{{ url_for('chat.respond_invite', req_id=invite.id, action='reject') }}" method="POST">
-                    <button class="btn btn-outline-danger btn-sm shadow-sm">
-                        <i class="bi bi-x-lg"></i> Decline
-                    </button>
-                </form>
-            </div>
-        </li>
+        </div>
         {% endfor %}
-    </ul>
+    </div>
 </div>
 {% endif %}
 
-<ul class="nav nav-tabs mb-4" id="chatTabs" role="tablist">
-  <li class="nav-item">
-    <button class="nav-link active" id="my-rooms-tab" data-bs-toggle="tab" data-bs-target="#my-rooms" type="button">
-        <i class="bi bi-chat-text-fill"></i> Your Rooms
-    </button>
-  </li>
-  <li class="nav-item">
-    <button class="nav-link" id="public-rooms-tab" data-bs-toggle="tab" data-bs-target="#public-rooms" type="button">
-        <i class="bi bi-globe"></i> Explore Public Rooms
-    </button>
-  </li>
-</ul>
+<div class="d-flex justify-content-between align-items-center mb-4">
+    <ul class="nav nav-pills bg-light p-1 rounded-pill shadow-sm" id="chatTabs" role="tablist">
+        <li class="nav-item" role="presentation">
+            <button class="nav-link active rounded-pill px-4 fw-bold" id="my-rooms-tab" data-bs-toggle="pill" data-bs-target="#my-rooms" type="button">
+                <i class="bi bi-chat-text-fill me-1"></i> Your Rooms
+            </button>
+        </li>
+        <li class="nav-item" role="presentation">
+            <button class="nav-link rounded-pill px-4 fw-bold" id="public-rooms-tab" data-bs-toggle="pill" data-bs-target="#public-rooms" type="button">
+                <i class="bi bi-globe me-1"></i> Explore Public
+            </button>
+        </li>
+    </ul>
+</div>
 
 <div class="tab-content" id="chatTabsContent">
-  <!-- TAB 1: Phòng của bạn -->
+  
   <div class="tab-pane fade show active" id="my-rooms" role="tabpanel">
-     <div class="row row-cols-1 row-cols-md-3 g-4">
+     <div class="row row-cols-1 row-cols-md-2 row-cols-xl-3 g-4">
         {% for room in my_rooms %}
             <div class="col">
-                <div class="card h-100 shadow-sm border">
-                    
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center mb-3">
-                            {% if room.is_private %}
-                                <span class="badge bg-secondary"><i class="bi bi-lock-fill"></i> Private</span>
-                            {% else %}
-                                <span class="badge bg-success"><i class="bi bi-globe"></i> Public</span>
-                            {% endif %}
-                            <small class="text-muted"><i class="bi bi-people-fill"></i> {{ room.members.count() }} members</small>
-                        </div>
+                <div class="card h-100 room-card shadow-sm rounded-4 hover-lift position-relative overflow-hidden">
+                    <div class="card-header bg-transparent border-0 pt-3 px-3 d-flex justify-content-between">
+                        {% if room.is_private %}
+                            <span class="badge bg-secondary bg-opacity-10 text-secondary rounded-pill"><i class="bi bi-lock-fill"></i> Private</span>
+                        {% else %}
+                            <span class="badge bg-success bg-opacity-10 text-success rounded-pill"><i class="bi bi-globe"></i> Public</span>
+                        {% endif %}
+                        <small class="text-muted fw-bold"><i class="bi bi-people-fill"></i> {{ room.members.count() }}</small>
+                    </div>
 
-                        <h5 class="card-title fw-bold text-primary mb-1">{{ room.name }}</h5>
-                        <p class="card-text text-muted small text-truncate mb-3">{{ room.description or 'No description provided.' }}</p>
+                    <div class="card-body px-3 pt-1">
+                        <h5 class="card-title fw-bold text-dark mb-2">{{ room.name }}</h5>
+                        <p class="card-text text-muted small text-truncate mb-3" style="min-height: 20px;">
+                            {{ room.description or 'Ready to start planning?' }}
+                        </p>
                         
-                        <div>
+                        <div class="mb-3" style="min-height: 25px;">
                             {% if room.tags %}
                                 {% for tag in room.tags.split(',') if tag %}
-                                    <span class="badge bg-light text-dark border rounded-pill py-1 px-2 mb-1">
-                                        <i class="bi bi-hash text-info"></i> {{ tag }}
+                                    <span class="badge bg-light text-dark border tag-badge rounded-pill mb-1">
+                                        #{{ tag }}
                                     </span>
                                 {% endfor %}
-                            {% else %}
-                                <span class="badge bg-light text-secondary border">No tags</span>
                             {% endif %}
                         </div>
                     </div>
 
-                    <div class="card-footer bg-white border-top-0 pt-0 pb-3">
-                        <a href="{{ url_for('chat.chat_room', room_name=room.name) }}" class="btn btn-primary w-100 fw-bold">
+                    <div class="card-footer bg-transparent border-0 pb-3 px-3">
+                        <a href="{{ url_for('chat.chat_room', room_name=room.name) }}" class="btn btn-outline-primary w-100 fw-bold rounded-pill">
                             Enter Chat <i class="bi bi-arrow-right-short"></i>
                         </a>
                     </div>
                 </div>
             </div>
         {% else %}
-            <div class="col-12 text-center py-5">
-                <p class="text-muted fs-5">You haven't joined any rooms yet.</p>
-                <button type="button" class="btn btn-primary mt-2" data-bs-toggle="modal" data-bs-target="#createRoomModal">
-                    Create your first room
+            <div class="col-12 text-center py-5 bg-light rounded-4 border-dashed">
+                <div class="text-muted mb-3"><i class="bi bi-chat-square-dots display-4 opacity-25"></i></div>
+                <h5 class="text-muted">You haven't joined any rooms yet.</h5>
+                <button type="button" class="btn btn-primary mt-2 rounded-pill" data-bs-toggle="modal" data-bs-target="#createRoomModal">
+                    Start a New Trip
                 </button>
             </div>
         {% endfor %}
      </div>
   </div>
 
-  <!-- TAB 2: Phòng Public -->
   <div class="tab-pane fade" id="public-rooms" role="tabpanel">
-      <div class="list-group">
+      <div class="d-flex flex-column gap-3">
         {% for room in public_rooms %}
-            <div class="list-group-item d-flex justify-content-between align-items-center">
-                <div>
-                    <h5 class="mb-1">{{ room.name }}</h5>
-                    <small>{{ room.description }}</small>
-                    <div class="mt-1">
-                        {% for tag in room.tags.split(',') if tag %}
-                            <span class="badge bg-light text-dark border">{{ tag }}</span>
-                        {% endfor %}
+            <div class="card border-0 shadow-sm rounded-4 hover-lift">
+                <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
+                    <div class="col-md-8">
+                        <div class="d-flex align-items-center gap-2 mb-1">
+                            <h5 class="mb-0 fw-bold text-dark">{{ room.name }}</h5>
+                            {% if room.is_private %}
+                                <i class="bi bi-lock-fill text-muted" title="Private"></i>
+                            {% endif %}
+                        </div>
+                        <p class="text-muted small mb-2">{{ room.description or 'No description.' }}</p>
+                        <div>
+                            {% for tag in room.tags.split(',') if tag %}
+                                <span class="badge bg-light text-secondary border tag-badge rounded-pill">{{ tag }}</span>
+                            {% endfor %}
+                        </div>
                     </div>
-                </div>
-                <div>
-                    {% if room.id in pending_room_ids %}
-                        <button class="btn btn-secondary disabled">Pending Approval</button>
-                    {% else %}
-                        <form action="{{ url_for('chat.request_join_room', room_id=room.id) }}" method="POST">
-                            <button type="submit" class="btn btn-success"><i class="bi bi-person-plus-fill"></i> Join Request</button>
-                        </form>
-                    {% endif %}
+                    <div class="col-md-auto text-end">
+                        {% if room.id in pending_room_ids %}
+                            <button class="btn btn-secondary btn-sm rounded-pill disabled px-3">
+                                <i class="bi bi-hourglass-split"></i> Pending
+                            </button>
+                        {% else %}
+                            <form action="{{ url_for('chat.request_join_room', room_id=room.id) }}" method="POST">
+                                <button type="submit" class="btn btn-success btn-sm rounded-pill px-4 shadow-sm fw-bold">
+                                    <i class="bi bi-person-plus-fill"></i> Join
+                                </button>
+                            </form>
+                        {% endif %}
+                    </div>
                 </div>
             </div>
         {% else %}
-            <p class="text-muted p-3">No public rooms available to join.</p>
+            <div class="text-center py-5 text-muted">
+                <i class="bi bi-inbox display-4 opacity-25"></i>
+                <p class="mt-3">No public rooms available at the moment.</p>
+            </div>
         {% endfor %}
       </div>
   </div>
@@ -219,7 +272,7 @@
             checkbox.addEventListener('change', function() {
                 const checkedCount = document.querySelectorAll('#room-tags-container .room-tag-checkbox:checked').length;
                 if (checkedCount > 5) {
-                    this.checked = false; // Bỏ chọn nếu vượt quá 5
+                    this.checked = false; 
                     alert("You can only select up to 5 tags for a room.");
                 }
             });

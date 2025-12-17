@@ -8,15 +8,69 @@
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
-    /* --- CHAT STYLING --- */
-    #chat-container { display: flex; flex-direction: row; height: 70vh; border: 1px solid #dee2e6; border-radius: 0.375rem; overflow: hidden; }
-    #user-sidebar { flex: 0 0 200px; background-color: #f7f3f0; border-right: 1px solid #dee2e6; padding: 1rem; overflow-y: auto; }
-    #chat-main { flex-grow: 1; display: flex; flex-direction: column; height: 100%; position: relative; background-image: url("{{ url_for('static', filename='img/background-chat.jpg') }}"); background-size: cover; }
-    #messages { flex-grow: 1; overflow-y: scroll; padding: 1rem; background-color: rgba(255, 255, 255, 0.75); }
-    .message-bubble { max-width: 75%; padding: 0.5rem 1rem; margin-bottom: 0.5rem; border-radius: 1rem; box-shadow: 0 2px 4px rgba(0,0,0,0.08); }
-    .message-self { align-self: flex-end; background-color: #007bff; color: white; }
-    .message-other { align-self: flex-start; background-color: white; border: 1px solid #f0f0f0; }
-    .message-info { font-size: 0.75rem; color: #6c757d; margin-bottom: 0.25rem; }
+    /* --- CHAT STYLING (REDESIGNED) --- */
+    #chat-container { 
+        display: flex; flex-direction: row; height: 75vh; 
+        border: none; border-radius: 1rem; overflow: hidden; 
+        box-shadow: 0 10px 30px rgba(0,0,0,0.08); /* Đổ bóng mềm */
+        background: #fff;
+    }
+    
+    /* Sidebar */
+    #user-sidebar { 
+        flex: 0 0 240px; background-color: #ffffff; 
+        border-right: 1px solid #f0f0f0; padding: 1.5rem; 
+        overflow-y: auto; 
+    }
+    #user-sidebar h6 { letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.75rem; color: #adb5bd; font-weight: 700; }
+
+    /* Main Chat Area */
+    #chat-main { 
+        flex-grow: 1; display: flex; flex-direction: column; height: 100%; position: relative; 
+        background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); 
+    }
+
+    /* Messages Area */
+    #messages { 
+        flex-grow: 1; overflow-y: scroll; padding: 1.5rem; 
+        display: flex; flex-direction: column; gap: 0.5rem; 
+        scroll-behavior: smooth;
+    }
+    
+    /* Bubbles */
+    .message-bubble { 
+        max-width: 70%; padding: 0.75rem 1.25rem; margin-bottom: 0.25rem; 
+        position: relative; word-wrap: break-word; font-size: 0.95rem;
+        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
+    }
+    
+    .message-self { 
+        align-self: flex-end; 
+        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); 
+        color: white; 
+        border-radius: 18px 18px 4px 18px; 
+    }
+    
+    .message-other { 
+        align-self: flex-start; 
+        background-color: #ffffff; 
+        color: #333;
+        border: 1px solid #f1f1f1;
+        border-radius: 18px 18px 18px 4px; 
+    }
+    
+    .message-info { font-size: 0.7rem; margin-bottom: 4px; opacity: 0.8; }
+    .message-self .message-info { color: rgba(255,255,255,0.9); text-align: right; }
+    .message-other .message-info { color: #6c757d; text-align: left; }
+
+    /* Scrollbar */
+    #messages::-webkit-scrollbar { width: 6px; }
+    #messages::-webkit-scrollbar-track { background: transparent; }
+    #messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
+    #messages::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+
+    /* Typing & Emoji */
+    #typing-status { font-size: 0.75rem; color: #6c757d; padding: 0 1.5rem 0.5rem; font-style: italic; min-height: 20px;}
     
     /* --- TAB STYLING --- */
     .nav-tabs .nav-link.active { background-color: #f8f9fa; border-bottom-color: transparent; font-weight: bold; }
@@ -80,44 +134,31 @@
     {% if room.creator == current_user and pending_requests %}
     <div class="alert alert-warning shadow-sm">
         <h5 class="alert-heading"><i class="bi bi-exclamation-circle-fill"></i> Pending Requests</h5>
-        <p class="small text-muted mb-2">
-            Manage join requests and invitations.
-        </p>
-        <hr class="my-2">
         <div class="list-group">
             {% for req in pending_requests %}
             <div class="list-group-item d-flex justify-content-between align-items-center bg-white border-0 mb-1 rounded">
                 <div>
-                    <i class="bi bi-person-plus"></i>
-                    {% if req.inviter %}
-                        <strong>{{ req.inviter.username }}</strong> wants to invite <strong>{{ req.user.username }}</strong>
-                    {% else %}
-                        <strong>{{ req.user.username }}</strong> wants to join this room
-                    {% endif %}
+                    <strong>{{ req.user.username }}</strong> wants to join.
                 </div>
                 <div>
-                    <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='accept') }}" method="POST">
-                        <button class="btn btn-sm btn-success me-1" title="Approve"><i class="bi bi-check-lg"></i> Approve</button>
-                    </form>
-                    <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='reject') }}" method="POST">
-                        <button class="btn btn-sm btn-danger" title="Reject"><i class="bi bi-x-lg"></i></button>
-                    </form>
+                    <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='accept') }}" method="POST"><button class="btn btn-sm btn-success me-1">Approve</button></form>
+                    <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='reject') }}" method="POST"><button class="btn btn-sm btn-danger">Reject</button></form>
                 </div>
             </div>
             {% endfor %}
         </div>
     </div>
     {% endif %}
+
     <div>
-            {% if room.is_private %}
-                <span class="badge bg-secondary"><i class="bi bi-lock-fill"></i> Private</span>
-            {% else %}
-                <span class="badge bg-success"><i class="bi bi-globe"></i> Public</span>
-            {% endif %}
-        </div>
+        {% if room.is_private %}
+            <span class="badge bg-secondary"><i class="bi bi-lock-fill"></i> Private</span>
+        {% else %}
+            <span class="badge bg-success"><i class="bi bi-globe"></i> Public</span>
+        {% endif %}
     </div>
 
-    <ul class="nav nav-tabs" id="roomTabs" role="tablist">
+    <ul class="nav nav-tabs mt-3" id="roomTabs" role="tablist">
         <li class="nav-item">
             <button class="nav-link active" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat-panel" type="button" role="tab">
                 <i class="bi bi-chat-dots"></i> Chat
@@ -145,28 +186,43 @@
         <div class="tab-pane fade show active" id="chat-panel" role="tabpanel">
             <div id="chat-container">
                 <div id="user-sidebar">
-                    <h6 class="mb-3">Members (<span id="user-count">0</span>)</h6>
+                    <div class="d-flex align-items-center mb-4 text-primary">
+                        <i class="bi bi-people-fill fs-5 me-2"></i>
+                        <h6 class="mb-0 text-dark fw-bold">Members (<span id="user-count">0</span>)</h6>
+                    </div>
                     <div id="user-list-container">
                         </div>
                 </div>
+
                 <div id="chat-main">
-                    <div id="messages" class="d-flex flex-column"></div>
-                    <div id="typing-status" class="small text-muted px-3 py-1 bg-light"></div>
-                    <div id="emoji-picker" style="display:none; position: absolute; bottom: 60px; right: 10px; z-index: 100;">
+                    <div id="messages"></div>
+                    
+                    <div id="typing-status"></div>
+                    
+                    <div id="emoji-picker" style="display:none; position: absolute; bottom: 80px; right: 20px; z-index: 100; box-shadow: 0 5px 20px rgba(0,0,0,0.15); border-radius: 8px;">
                         <emoji-picker></emoji-picker>
                     </div>
-                    <div class="p-2 bg-light border-top">
-                        <form id="chat-form">
-                            <div class="input-group">
-                                <input type="text" class="form-control" id="message-input" placeholder="Message..." autocomplete="off">
 
-                                <button class="btn btn-outline-primary" type="button" id="btn-summarize" title="Summarize recent chat with AI">
-                                    <i class="bi bi-magic"></i> AI Summary
+                    <div class="p-3 bg-transparent"> 
+                        <div class="bg-white p-2 rounded-4 shadow-sm border border-light">
+                            <form id="chat-form" class="d-flex align-items-center gap-2">
+                                <button class="btn btn-sm text-white rounded-pill px-3 fw-bold" type="button" id="btn-summarize" 
+                                        style="background: linear-gradient(45deg, #FFB75E, #ED8F03); border: none; white-space: nowrap;"
+                                        title="Summarize recent chat with AI">
+                                    <i class="bi bi-stars"></i> AI Recap
                                 </button>
-                                <button class="btn btn-outline-secondary" type="button" id="emoji-btn">😊</button>
-                                <button class="btn btn-primary" type="submit">Send</button>
-                            </div>
-                        </form>
+                                
+                                <input type="text" class="form-control border-0 bg-light rounded-pill px-3 py-2" id="message-input" placeholder="Nhập tin nhắn..." autocomplete="off" style="box-shadow: none;">
+
+                                <button class="btn btn-light text-secondary rounded-circle" type="button" id="emoji-btn" style="width: 40px; height: 40px;">
+                                    <i class="bi bi-emoji-smile-fill fs-5"></i>
+                                </button>
+                                
+                                <button class="btn btn-primary rounded-circle shadow-sm" type="submit" style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;">
+                                    <i class="bi bi-send-fill ms-1"></i>
+                                </button>
+                            </form>
+                        </div>
                     </div>
                 </div>
             </div>
@@ -238,145 +294,94 @@
 
         <div class="tab-pane fade" id="weather-panel" role="tabpanel">
             <div class="container-fluid p-3">
-        
-        <div class="position-relative mb-3" style="max-width: 500px; margin: 0 auto;">
-            <div class="input-group">
-                <input type="text" id="weather-search-input" class="form-control" placeholder="Nhập tên thành phố (VD: Hanoi, Tokyo)..." autocomplete="off" onkeydown="if(event.key === 'Enter') handleSearch()">
-                <button class="btn btn-primary" type="button" onclick="handleSearch()">
-                    <i class="bi bi-search"></i>
-                </button>
-            </div>
-            
-            <div id="search-results-list" class="list-group position-absolute w-100 shadow mt-1" style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;">
+                <div class="position-relative mb-3" style="max-width: 500px; margin: 0 auto;">
+                    <div class="input-group">
+                        <input type="text" id="weather-search-input" class="form-control" placeholder="Nhập tên thành phố..." autocomplete="off" onkeydown="if(event.key === 'Enter') handleSearch()">
+                        <button class="btn btn-primary" type="button" onclick="handleSearch()"><i class="bi bi-search"></i></button>
+                    </div>
+                    <div id="search-results-list" class="list-group position-absolute w-100 shadow mt-1" style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;"></div>
                 </div>
-        </div>
-
-        <div id="weather-loading" class="text-center py-5">
-            <div class="spinner-border text-primary" role="status"></div>
-            <p class="mt-2 text-muted">Đang tải dữ liệu thời tiết...</p>
-        </div>
-
-        <div id="weather-error" class="alert alert-danger" style="display: none;"></div>
-
-        <div id="weather-content" style="display: none;">
-            <div class="card text-white mb-4 shadow" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 20px;">
-                <div class="card-body p-4">
-                    <div class="row align-items-center">
-                        <div class="col-md-6">
-                            <h4 class="fw-light opacity-75"><i class="bi bi-geo-alt-fill"></i> <span id="w-location">Hồ Chí Minh, VN</span></h4>
-                            <h1 style="font-size: 4rem; font-weight: bold;"><span id="w-temp">--</span>°C</h1>
-                            <p class="fs-5 mb-0" id="w-desc">--</p>
-                            <div class="mt-3">
-                                <span class="badge bg-white text-primary bg-opacity-25 border border-white border-opacity-25 me-2">
-                                    💧 <span id="w-precip">0</span>mm mưa
-                                </span>
-                                <span class="badge bg-white text-primary bg-opacity-25 border border-white border-opacity-25">
-                                    💨 <span id="w-wind">0</span> km/h
-                                </span>
+                <div id="weather-loading" class="text-center py-5">
+                    <div class="spinner-border text-primary" role="status"></div>
+                    <p class="mt-2 text-muted">Đang tải dữ liệu thời tiết...</p>
+                </div>
+                <div id="weather-error" class="alert alert-danger" style="display: none;"></div>
+                <div id="weather-content" style="display: none;">
+                    <div class="card text-white mb-4 shadow" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 20px;">
+                        <div class="card-body p-4">
+                            <div class="row align-items-center">
+                                <div class="col-md-6">
+                                    <h4 class="fw-light opacity-75"><i class="bi bi-geo-alt-fill"></i> <span id="w-location">Hồ Chí Minh, VN</span></h4>
+                                    <h1 style="font-size: 4rem; font-weight: bold;"><span id="w-temp">--</span>°C</h1>
+                                    <p class="fs-5 mb-0" id="w-desc">--</p>
+                                    <div class="mt-4 d-flex flex-wrap gap-2">
+                                        <span class="badge bg-white text-dark shadow-sm d-flex align-items-center" style="font-size: 1rem; padding: 10px 15px; border-radius: 12px;">
+                                            <span class="me-2 fs-5">💧</span> <span id="w-precip">0</span> mm
+                                        </span>
+                                        <span class="badge bg-white text-dark shadow-sm d-flex align-items-center" style="font-size: 1rem; padding: 10px 15px; border-radius: 12px;">
+                                            <span class="me-2 fs-5">💨</span> <span id="w-wind">0</span> km/h
+                                        </span>
+                                        
+                                        <span id="w-aqi" class="badge shadow-sm d-flex align-items-center" 
+                                              style="display: none; font-size: 1rem; padding: 10px 15px; border-radius: 12px;">
+                                        </span>
+                                    </div>
+                                </div>
+                                <div class="col-md-6 text-center text-md-end">
+                                    <div style="font-size: 6rem; line-height: 1;" id="w-icon">🌤️</div>
+                                    <div class="mt-3 text-end" id="w-risks"></div>
+                                </div>
                             </div>
                         </div>
-                        <div class="col-md-6 text-center text-md-end">
-                            <div style="font-size: 6rem; line-height: 1;" id="w-icon">🌤️</div>
-                            <div class="mt-3 text-end" id="w-risks"></div>
-                        </div>
                     </div>
+                    <h5 class="mb-3 text-muted">Dự báo 24 giờ tới</h5>
+                    <div class="d-flex flex-nowrap overflow-auto py-2 hourly-scroll" id="forecast-container" style="scroll-behavior: smooth;"></div>
                 </div>
             </div>
-
-            <h5 class="mb-3 text-muted">Dự báo 24 giờ tới</h5>
-            <div class="d-flex flex-nowrap overflow-auto py-2 hourly-scroll" id="forecast-container" style="scroll-behavior: smooth;">
-            </div>
-        </div>
-    </div>
-        </div>
-
-    </div>
-</div>
-
-<div class="modal fade" id="mapModal" tabindex="-1" aria-hidden="true">
-    <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Pick Location</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
-            <div class="modal-body">
-                <p class="small text-muted">Click anywhere on the map to drop a pin.</p>
-                <div id="picker-map"></div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-            </div>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="inviteModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="mapModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Pick Location</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="picker-map"></div></div></div></div></div>
+
+<div class="modal fade" id="inviteModal" tabindex="-1">
     <div class="modal-dialog">
         <div class="modal-content">
-            <div class="modal-header">
-                <h5 class="modal-title">Invite Friends to {{ room.name }}</h5>
-                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
-            </div>
+            <div class="modal-header"><h5 class="modal-title">Invite Friends</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
             <form action="{{ url_for('chat.invite_to_room', room_id=room.id) }}" method="POST">
                 <div class="modal-body">
-                    <p class="small text-muted">Select friends to add to this trip:</p>
                     <div class="list-group" style="max-height: 300px; overflow-y: auto;">
                         {% if invitable_friends %}
                             {% for friend in invitable_friends %}
                                 <label class="list-group-item d-flex gap-3">
-                                    <input class="form-check-input flex-shrink-0" type="checkbox" name="friend_ids" value="{{ friend.id }}">
-                                    <span class="pt-1 form-checked-content">
-                                        <strong>{{ friend.username }}</strong>
-                                        <small class="d-block text-muted">{{ friend.email }}</small>
-                                    </span>
+                                    <input class="form-check-input" type="checkbox" name="friend_ids" value="{{ friend.id }}">
+                                    <span><strong>{{ friend.username }}</strong><br><small class="text-muted">{{ friend.email }}</small></span>
                                 </label>
                             {% endfor %}
                         {% else %}
-                            <div class="text-center text-muted py-3">
-                                <i class="bi bi-people display-6"></i>
-                                <p class="mt-2">No friends available to invite.<br>(Or all your friends are already here!)</p>
-                            </div>
+                            <div class="text-center text-muted">No friends available to invite.</div>
                         {% endif %}
                     </div>
                 </div>
-                <div class="modal-footer">
-                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
-                    {% if invitable_friends %}
-                        <button type="submit" class="btn btn-primary">Send Invites</button>
-                    {% endif %}
-                </div>
+                <div class="modal-footer"><button type="submit" class="btn btn-primary">Send Invites</button></div>
             </form>
         </div>
     </div>
 </div>
 
-<div class="modal fade" id="summaryModal" tabindex="-1" aria-hidden="true">
+<div class="modal fade" id="summaryModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
         <div class="modal-content">
             <div class="modal-header bg-primary text-white">
                 <h5 class="modal-title"><i class="bi bi-magic"></i> AI Chat Summary</h5>
-                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
             <div class="modal-body">
-                <div id="summary-loading" class="text-center py-3">
-                    <div class="spinner-border text-primary" role="status">
-                        <span class="visually-hidden">Loading...</span>
-                    </div>
-                    <p class="mt-2 text-muted">AI is reading recent messages...</p>
-                </div>
-
+                <div id="summary-loading" class="text-center py-3"><div class="spinner-border text-primary"></div><p>AI is thinking...</p></div>
                 <div id="summary-content" style="display: none;">
-                    <h6 class="fw-bold text-dark"><i class="bi bi-lightning-charge-fill text-warning"></i> Tóm tắt ngắn </h6>
-                    <p id="summary-short-text" class="lead fst-italic p-3 bg-light border rounded fs-6"></p>
-                    <hr>
-                    <h6 class="fw-bold text-dark"><i class="bi bi-file-text-fill text-info"></i> Full Overview</h6>
-                    <p id="summary-full-text" class="p-3 bg-light border rounded" style="white-space: pre-line;"></p>
-                    <p class="text-muted small text-end">Dựa vào 40 tin nhắn gần nhất.</p>
+                    <h6 class="fw-bold">Tóm tắt ngắn</h6><p id="summary-short-text" class="lead fst-italic p-3 bg-light border rounded"></p>
+                    <hr><h6 class="fw-bold">Chi tiết</h6><p id="summary-full-text" class="p-3 bg-light border rounded" style="white-space: pre-line;"></p>
                 </div>
-            </div>
-            <div class="modal-footer">
-                <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
             </div>
         </div>
     </div>
@@ -388,455 +393,215 @@
     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
     
     <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <script>
-        // --- FIX: Save Vis Network to a separate variable before Timeline overwrites it ---
-        const VisNetwork = vis.Network;
-        const VisDataSet = vis.DataSet; // Save DataSet too
-    </script>
-
+    <script>const VisNetwork = vis.Network; const VisDataSet = vis.DataSet;</script>
     <script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
-    
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
 
     <script type="text/javascript">
-        // --- RESTORE VIS NETWORK ---
-        // Ensure vis.Network is available even if Timeline wiped it
-        if (!vis.Network) {
-            vis.Network = VisNetwork;
-        }
-        if (!vis.DataSet && VisDataSet) {
-            vis.DataSet = VisDataSet;
-        }
+        // --- RESTORE VIS NETWORK (Conflict fix) ---
+        if (!vis.Network) vis.Network = VisNetwork;
+        if (!vis.DataSet && VisDataSet) vis.DataSet = VisDataSet;
 
-        // --- 1. FLATPICKR ---
-        flatpickr(".flatpickr-input", {
-            enableTime: true, dateFormat: "Y-m-d H:i", time_24hr: true, altInput: true, altFormat: "F j, Y H:i"
-        });
+        // --- 1. GENERAL UI LOGIC ---
+        flatpickr(".flatpickr-input", { enableTime: true, dateFormat: "Y-m-d H:i", time_24hr: true });
 
-        // --- 2. STAR RATING ---
-        const stars = document.querySelectorAll('#star-rating-widget i');
-        const ratingInput = document.getElementById('rating-input');
-        stars.forEach(star => {
-            star.addEventListener('click', function() {
-                const value = this.getAttribute('data-value'); ratingInput.value = value; updateStars(value);
-            });
-            star.addEventListener('mouseover', function() { updateStars(this.getAttribute('data-value')); });
-        });
-        document.getElementById('star-rating-widget').addEventListener('mouseleave', function() { updateStars(ratingInput.value); });
-        function updateStars(val) {
-            stars.forEach(s => {
-                if (s.getAttribute('data-value') <= val) { s.classList.remove('bi-star'); s.classList.add('bi-star-fill'); } 
-                else { s.classList.remove('bi-star-fill'); s.classList.add('bi-star'); }
-            });
-        }
-
-        // --- 3. LEAFLET MAP PICKER ---
-        let pickerMap;
-        let pickerMarker;
-        function initPickerMap() {
-            setTimeout(() => {
-                if (!pickerMap) {
-                    pickerMap = L.map('picker-map').setView([10.762622, 106.660172], 13);
-                    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { attribution: '&copy; OpenStreetMap contributors' }).addTo(pickerMap);
-                    pickerMap.on('click', function(e) {
-                        const lat = e.latlng.lat; const lng = e.latlng.lng;
-                        if (pickerMarker) { pickerMap.removeLayer(pickerMarker); }
-                        pickerMarker = L.marker([lat, lng]).addTo(pickerMap);
-                        document.getElementById('location-input').value = `${lat.toFixed(5)}, ${lng.toFixed(5)}`;
-                    });
-                }
-                pickerMap.invalidateSize();
-            }, 300);
-        }
-
-        // --- 4. VIS.JS TIMELINE ---
-        let timeline;
-        function initTimeline() {
-            const container = document.getElementById('visual-timeline');
-            const dataScript = document.getElementById('timeline-data-json');
-            let activities = [];
-            if (dataScript && dataScript.textContent) { activities = JSON.parse(dataScript.textContent); }
-
-            const items = new vis.DataSet();
-            activities.forEach((act, index) => {
-                if(act.start && act.end) {
-                    const safeStart = act.start.replace('T', ' ');
-                    const safeEnd = act.end.replace('T', ' ');
-                    items.add({ id: index, content: act.name, start: safeStart, end: safeEnd, title: `${act.name}: ${safeStart} - ${safeEnd}` });
-                }
-            });
-
-            const options = { height: '100%', stack: true, zoomMin: 1000 * 60 * 60, zoomMax: 1000 * 60 * 60 * 24 * 365, horizontalScroll: true, verticalScroll: true, showCurrentTime: true };
-            timeline = new vis.Timeline(container, items, options);
-        }
-        function setTimelineView(view) {
-            if(!timeline) return;
-            const now = new Date();
-            let start, end;
-            if (view === 'day') { start = new Date(now.setHours(0,0,0,0)); end = new Date(now.setHours(23,59,59,999)); } 
-            else if (view === 'week') { const day = now.getDay(); const diff = now.getDate() - day + (day == 0 ? -6:1); start = new Date(now.setDate(diff)); end = new Date(now.setDate(diff + 6)); } 
-            else if (view === 'month') { start = new Date(now.getFullYear(), now.getMonth(), 1); end = new Date(now.getFullYear(), now.getMonth() + 1, 0); }
-            timeline.setWindow(start, end);
-        }
-        document.addEventListener('DOMContentLoaded', () => { initTimeline(); });
-
-        // --- 5. FINANCE GRAPH ---
-        const switchOutside = document.getElementById('switchOutside');
-        const memberInput = document.getElementById('memberInput');
-        const outsiderInput = document.getElementById('outsiderInput');
-        if (switchOutside) {
-            switchOutside.addEventListener('change', function() {
-                if(this.checked) { memberInput.style.display = 'none'; outsiderInput.style.display = 'block'; } 
-                else { memberInput.style.display = 'block'; outsiderInput.style.display = 'none'; }
-            });
-        }
-
-        let networkInstance = null;
-        function loadGraph() {
-            // UPDATED FETCH URL
-            fetch("{{ url_for('finance.api_finance_graph') }}?room_id={{ room.id }}")
-                .then(response => response.json())
-                .then(data => {
-                    var nodes = new vis.DataSet(data.nodes);
-                    var edges = new vis.DataSet(data.edges.map(e => ({
-                        from: e.from, to: e.to, label: e.label, arrows: 'to', color: {color: '#dc3545'}, width: 2
-                    })));
-                    var container = document.getElementById('finance-network');
-                    var dataVis = { nodes: nodes, edges: edges };
-                    var options = {
-                        nodes: { font: { size: 16 }, borderWidth: 2, color: { background: '#fff', border: '#dc3545' } },
-                        physics: { stabilization: false, barnesHut: { gravitationalConstant: -3000 } }
-                    };
-                    
-                    if (networkInstance) {
-                        networkInstance.setData(dataVis); // Update existing to avoid flicker
-                    } else {
-                        networkInstance = new vis.Network(container, dataVis, options);
-                    }
-                });
-        }
-
-        // --- AUTO-LOAD GRAPH ON TAB SWITCH ---
-        // This fixes the 0-height issue when graph loads in hidden tab
-        document.addEventListener('DOMContentLoaded', function() {
-            var financeTabBtn = document.getElementById('finance-tab');
-            financeTabBtn.addEventListener('shown.bs.tab', function (e) {
-                loadGraph();
-            });
-        });
-
-        // --- 6. CHAT LOGIC ---
+        // --- 2. CHAT LOGIC (IMPORTANT: CONNECTS TO ROOM) ---
         document.addEventListener('DOMContentLoaded', (event) => {
             
-            // === [ĐÃ SỬA] THÊM ĐOẠN JS XỬ LÝ SUMMARIZE VÀO ĐÂY ===
+            // AI Summary Handler
             const summarizeBtn = document.getElementById('btn-summarize');
             const summaryModalEl = document.getElementById('summaryModal');
-            
             if (summarizeBtn && summaryModalEl) {
                 const summaryModal = new bootstrap.Modal(summaryModalEl);
-                const summaryLoading = document.getElementById('summary-loading');
-                const summaryContent = document.getElementById('summary-content');
-                const summaryShortText = document.getElementById('summary-short-text');
-                const summaryFullText = document.getElementById('summary-full-text');
-                
-                // Lấy ID phòng
-                const currentRoomId = '{{ room.id }}'; 
-
                 summarizeBtn.addEventListener('click', function() {
-                    summaryLoading.style.display = 'block';
-                    summaryContent.style.display = 'none';
+                    document.getElementById('summary-loading').style.display = 'block';
+                    document.getElementById('summary-content').style.display = 'none';
                     summaryModal.show();
-
-                    fetch(`/chat/summary/${currentRoomId}`)
-                        .then(response => response.json())
-                        .then(data => {
-                            summaryLoading.style.display = 'none';
-                            summaryContent.style.display = 'block';
-                            
-                            if (data.error) {
-                                summaryShortText.innerText = "Error";
-                                summaryFullText.innerText = data.error;
-                            } else {
-                                summaryShortText.innerText = data.short || "No summary available.";
-                                summaryFullText.innerText = data.full || "No details available.";
-                            }
-                        })
-                        .catch(error => {
-                            console.error('Error:', error);
-                            summaryLoading.style.display = 'none';
-                            summaryContent.style.display = 'block';
-                            summaryShortText.innerText = "Connection Error";
-                            summaryFullText.innerText = "Could not connect to AI server.";
-                        });
+                    fetch(`/chat/summary/{{ room.id }}`).then(r => r.json()).then(data => {
+                        document.getElementById('summary-loading').style.display = 'none';
+                        document.getElementById('summary-content').style.display = 'block';
+                        document.getElementById('summary-short-text').innerText = data.short || "Error";
+                        document.getElementById('summary-full-text').innerText = data.full || "Error";
+                    }).catch(e => { console.error(e); });
                 });
             }
-            // === [HẾT PHẦN SỬA JS] ===
 
+            // Socket.IO Connection
             var socket = io();
             const roomName = '{{ room.name }}';
             const currentUsername = '{{ current_user.username }}';
             const messageContainer = document.getElementById('messages');
-            const chatForm = document.getElementById('chat-form');
             const messageInput = document.getElementById('message-input');
-            const userList = document.getElementById('user-list');
-            const userCount = document.getElementById('user-count');
-            const emojiPicker = document.getElementById('emoji-picker');
-            const emojiBtn = document.getElementById('emoji-btn');
             const typingStatus = document.getElementById('typing-status');
+            const emojiPicker = document.querySelector('emoji-picker');
             let typingTimer;
 
             function scrollToBottom() { messageContainer.scrollTop = messageContainer.scrollHeight; }
             function isImageUrl(url) { return(url.match(/\.(jpeg|jpg|gif|png)$/) != null); }
+
+            // Thêm tin nhắn vào giao diện
             function addMessage(data) {
                 let isSelf = data.username === currentUsername;
                 let bubbleClass = isSelf ? 'message-self' : 'message-other';
                 let content = isImageUrl(data.msg) ? `<img src="${data.msg}" style="max-width:100%; border-radius:5px;">` : data.msg;
+                
                 const msgDiv = document.createElement('div');
-                msgDiv.classList.add('message-bubble', bubbleClass);
-                msgDiv.innerHTML = `<div class="message-info text-${isSelf ? 'end text-white-50' : 'start'}"><strong>${isSelf ? 'You' : data.username}</strong> <small>${data.timestamp}</small></div><div>${content}</div>`;
+                msgDiv.className = `message-bubble ${bubbleClass}`;
+                msgDiv.innerHTML = `
+                    <div class="message-info">
+                        <strong>${isSelf ? 'You' : data.username}</strong> 
+                        <small class="ms-1">${data.timestamp || ''}</small>
+                    </div>
+                    <div>${content}</div>
+                `;
                 messageContainer.appendChild(msgDiv);
                 scrollToBottom();
             }
-            emojiBtn.addEventListener('click', () => { emojiPicker.style.display = (emojiPicker.style.display === 'none') ? 'block' : 'none'; });
+
+            // JOIN ROOM (Quan trọng: Không có dòng này chat sẽ không chạy trong Room)
+            socket.on('connect', () => {
+                console.log("Connected to server, joining room:", roomName);
+                socket.emit('join', { 'room': roomName });
+            });
+
+            socket.on('load_history', msgs => { messageContainer.innerHTML=''; msgs.forEach(addMessage); });
+            socket.on('receive_message', data => { addMessage(data); typingStatus.textContent = ''; });
+            socket.on('status', data => { 
+                const div = document.createElement('div'); 
+                div.className = 'text-center small text-muted my-1'; 
+                div.innerHTML = `<em>${data.msg}</em>`; 
+                messageContainer.appendChild(div); 
+            });
+
+            // Handle Send
+            document.getElementById('chat-form').addEventListener('submit', e => {
+                e.preventDefault(); 
+                let msg = messageInput.value.trim();
+                if (msg) { 
+                    // Gửi tin kèm roomName
+                    socket.emit('send_message', { 'msg': msg, 'room': roomName }); 
+                    socket.emit('stopped_typing', { room: roomName }); 
+                    messageInput.value = ''; 
+                    document.getElementById('emoji-picker').style.display = 'none';
+                }
+            });
+
+            // Handle Typing & Emoji
+            document.getElementById('emoji-btn').addEventListener('click', () => { 
+                const picker = document.getElementById('emoji-picker');
+                picker.style.display = (picker.style.display === 'none') ? 'block' : 'none'; 
+            });
             emojiPicker.addEventListener('emoji-click', e => { messageInput.value += e.detail.unicode; });
+            
             messageInput.addEventListener('input', () => {
                 clearTimeout(typingTimer); socket.emit('typing', { room: roomName });
                 typingTimer = setTimeout(() => { socket.emit('stopped_typing', { room: roomName }); }, 2000);
             });
             socket.on('typing_status', (data) => { typingStatus.textContent = data.isTyping ? `${data.username} is typing...` : ''; });
-            socket.on('connect', () => socket.emit('join', { 'room': roomName }));
-            socket.on('load_history', msgs => { messageContainer.innerHTML=''; msgs.forEach(addMessage); });
-            socket.on('receive_message', data => { addMessage(data); typingStatus.textContent = ''; });
-            socket.on('status', data => { const div = document.createElement('div'); div.className = 'text-center small text-muted my-1'; div.innerHTML = `<em>${data.msg}</em>`; messageContainer.appendChild(div); });
+
+            // User List Update
             socket.on('user_list', data => {
                 const container = document.getElementById('user-list-container');
-                const userCount = document.getElementById('user-count');
-                        
-                // Cập nhật tổng số thành viên
-                if (data.total_count) userCount.textContent = data.total_count;
-                else userCount.textContent = data.online.length + data.offline.length; // Fallback
-                        
-                container.innerHTML = ''; // Xóa cũ
-                        
-                // Helper tạo list
+                document.getElementById('user-count').textContent = data.total_count || (data.online.length + data.offline.length);
+                container.innerHTML = '';
+                
                 const createList = (title, users, isOnline) => {
-                    if (users.length === 0) return;
-                    
+                    if (!users || users.length === 0) return;
                     const label = document.createElement('small');
                     label.className = 'text-muted fw-bold text-uppercase mt-2 d-block';
-                    label.style.fontSize = '0.7rem';
-                    label.innerText = title;
+                    label.style.fontSize = '0.7rem'; label.innerText = title;
                     container.appendChild(label);
-                
-                    const ul = document.createElement('ul');
-                    ul.className = 'list-group list-group-flush small mb-2';
-                    
+                    const ul = document.createElement('ul'); ul.className = 'list-group list-group-flush small mb-2';
                     users.forEach(u => {
-                        const li = document.createElement('li');
-                        li.className = 'list-group-item px-0 py-1 bg-transparent border-0';
-                        
-                        // Màu dot: Xanh nếu online, Xám nếu offline
-                        const color = isOnline ? '#28a745' : '#6c757d'; 
-                        
-                        li.innerHTML = `
-                            <span style="height:8px;width:8px;background:${color};border-radius:50%;display:inline-block;margin-right:6px;"></span>
-                            <span class="${!isOnline ? 'text-muted' : ''}">${u}</span>
-                        `;
+                        const li = document.createElement('li'); li.className = 'list-group-item px-0 py-1 bg-transparent border-0';
+                        li.innerHTML = `<span style="height:8px;width:8px;background:${isOnline?'#28a745':'#6c757d'};border-radius:50%;display:inline-block;margin-right:6px;"></span>${u}`;
                         ul.appendChild(li);
                     });
                     container.appendChild(ul);
                 };
-            
-                // Render 2 nhóm
                 createList('Online', data.online, true);
                 createList('Offline', data.offline, false);
             });
-            chatForm.addEventListener('submit', e => {
-                e.preventDefault(); let msg = messageInput.value.trim();
-                if (msg) { socket.emit('send_message', { 'msg': msg, 'room': roomName }); clearTimeout(typingTimer); socket.emit('stopped_typing', { room: roomName }); messageInput.value = ''; emojiPicker.style.display = 'none'; }
-            });
-            window.addEventListener('beforeunload', () => socket.emit('leave', { 'room': roomName }));
         });
 
-        // Filter Constraint Type to show only 'Price'
-        document.addEventListener('DOMContentLoaded', function() {
-            const typeSelect = document.querySelector('select[name="type"]');
-            if (typeSelect) {
-                for (let i = typeSelect.options.length - 1; i >= 0; i--) {
-                    if (typeSelect.options[i].value.toLowerCase() !== 'price') { typeSelect.remove(i); }
-                }
-                if (typeSelect.options.length > 0) { typeSelect.selectedIndex = 0; }
-            }
+        // --- 3. FINANCE GRAPH ---
+        let networkInstance = null;
+        function loadGraph() {
+            fetch("{{ url_for('finance.api_finance_graph') }}?room_id={{ room.id }}").then(r=>r.json()).then(data => {
+                var nodes = new vis.DataSet(data.nodes);
+                var edges = new vis.DataSet(data.edges.map(e => ({from: e.from, to: e.to, label: e.label, arrows: 'to', color: {color: '#dc3545'}, width: 2})));
+                var container = document.getElementById('finance-network');
+                if(networkInstance) networkInstance.setData({nodes, edges});
+                else networkInstance = new vis.Network(container, {nodes, edges}, {nodes: {font:{size:16}, borderWidth:2, color:{background:'#fff', border:'#dc3545'}}, physics:{stabilization:false}});
+            });
+        }
+        document.getElementById('finance-tab').addEventListener('shown.bs.tab', loadGraph);
+        document.getElementById('switchOutside').addEventListener('change', function() {
+            document.getElementById('memberInput').style.display = this.checked ? 'none' : 'block';
+            document.getElementById('outsiderInput').style.display = this.checked ? 'block' : 'none';
         });
+
+        // --- 4. WEATHER LOGIC ---
+        function handleSearch() {
+            const q = document.getElementById('weather-search-input').value.trim();
+            if(!q) return;
+            fetch("{{ url_for('weather.search_city') }}?q="+encodeURIComponent(q)).then(r=>r.json()).then(data=>{
+                const list = document.getElementById('search-results-list'); list.innerHTML=''; list.style.display='block';
+                if(data.length){ data.forEach(i=>{ const a=document.createElement('a'); a.className='list-group-item list-group-item-action'; a.innerHTML=`<strong>${i.name}</strong>`; a.onclick=()=>{ selectLoc(i.lat,i.lon,i.name); }; list.appendChild(a); }); }
+                else { list.innerHTML='<div class="list-group-item text-muted">Not found</div>'; }
+            });
+        }
+        function selectLoc(lat,lon,name) {
+            document.getElementById('weather-search-input').value=name; document.getElementById('search-results-list').style.display='none';
+            document.getElementById('weather-content').style.display='none'; document.getElementById('weather-loading').style.display='block';
+            fetch(`{{ url_for('weather.get_forecast') }}?lat=${lat}&lon=${lon}&name=${encodeURIComponent(name)}`).then(r=>r.json()).then(d=>{
+                if(d.error) throw new Error(d.error);
+                document.getElementById('w-location').innerText=d.location_name; 
+                document.getElementById('w-temp').innerText=d.current_weather.temperature;
+                document.getElementById('w-desc').innerText=d.current_weather.weather_desc; 
+                document.getElementById('w-precip').innerText=d.current_weather.precipitation_sum;
+                document.getElementById('w-wind').innerText=d.current_weather.wind_max_kmh;
+
+                // --- LOGIC AQI MỚI ---
+                const aqiEl = document.getElementById('w-aqi');
+                if (d.current_weather.aqi_val !== undefined) {
+                    aqiEl.style.display = 'inline-block';
+                    aqiEl.style.backgroundColor = d.current_weather.aqi_bg;
+                    aqiEl.style.color = d.current_weather.aqi_text;
+                    // UPDATED: Dùng innerHTML để chèn icon đẹp hơn
+                    aqiEl.innerHTML = `<span class="me-2 fs-5">🍃</span> AQI ${d.current_weather.aqi_val}`;
+                } else {
+                    aqiEl.style.display = 'none';
+                }
+                // ---------------------
+
+                // UPDATED: Render thẻ dự báo to đẹp hơn
+                const fc = document.getElementById('forecast-container'); fc.innerHTML='';
+                if(d.hourly_forecast) d.hourly_forecast.forEach(h=>{ 
+                    // Logic chọn icon đơn giản dựa trên mô tả
+                    let icon = '⛅';
+                    let desc = h.weather_desc || '';
+                    if(desc.includes('Mưa')) icon = '🌧️';
+                    else if(desc.includes('Nắng') || desc.includes('Quang')) icon = '☀️';
+                    else if(desc.includes('Mây')) icon = '☁️';
+
+                    fc.innerHTML += `
+                    <div class="col-3 col-md-2 px-2 mb-2" style="min-width: 130px;">
+                        <div class="card h-100 border-0 shadow text-center py-4" style="background-color: #ffffff; border-radius: 16px;">
+                            <div class="text-secondary fw-bold mb-1">${h.hour}</div>
+                            <div class="my-2" style="font-size: 3rem;">${icon}</div>
+                            <div class="fw-bolder text-dark" style="font-size: 1.5rem;">${h.temp}°C</div>
+                            <div class="text-muted text-truncate px-2 mt-1" style="font-size: 0.85rem; font-weight: 500;">
+                                ${h.weather_desc}
+                            </div>
+                        </div>
+                    </div>`; 
+                });
+                document.getElementById('weather-loading').style.display='none'; document.getElementById('weather-content').style.display='block';
+            }).catch(e=>{ document.getElementById('weather-loading').style.display='none'; document.getElementById('weather-error').innerText=e.message; document.getElementById('weather-error').style.display='block'; });
+        }
+        document.getElementById('weather-tab').addEventListener('shown.bs.tab', ()=>{ loadWeatherData(); }); // Load default
+        function loadWeatherData() { selectLoc(10.762, 106.660, "Hồ Chí Minh, VN"); } // Default func
     </script>
-
-    <script>
-    // --- WEATHER CONFIG ---
-    // [UPDATED] Chúng ta cần 2 routes: 1 để search địa điểm, 1 để lấy thời tiết
-    const API_SEARCH_URL = "{{ url_for('weather.search_city') }}"; 
-    const API_FORECAST_URL = "{{ url_for('weather.get_forecast') }}"; 
-    
-    const DEFAULT_LAT = 10.762622;
-    const DEFAULT_LON = 106.660172;
-    const DEFAULT_NAME = "Hồ Chí Minh, VN";
-
-    function getWeatherIcon(desc) {
-        if (!desc) return '🌤️';
-        if (desc.includes('Mưa')) return '🌧️';
-        if (desc.includes('Nắng') || desc.includes('Quang')) return '☀️';
-        if (desc.includes('Mây')) return '⛅';
-        if (desc.includes('Dông') || desc.includes('bão')) return '⛈️';
-        return '🌤️';
-    }
-
-    function getRiskBadge(risk) {
-        if (risk === 'RISK_HEAVY_RAIN') return '<div class="alert alert-danger d-inline-block py-1 px-2 m-1 border-0 shadow-sm small">☔ Mưa lớn</div>';
-        if (risk === 'RISK_EXTREME_HEAT') return '<div class="alert alert-danger d-inline-block py-1 px-2 m-1 border-0 shadow-sm small">☀️ Nắng gắt</div>';
-        if (risk === 'WARNING_LIGHT_RAIN') return '<div class="alert alert-warning d-inline-block py-1 px-2 m-1 border-0 shadow-sm text-dark small">🌧️ Mưa nhẹ</div>';
-        if (risk === 'RISK_HIGH_WIND') return '<div class="alert alert-warning d-inline-block py-1 px-2 m-1 border-0 shadow-sm text-dark small">💨 Gió to</div>';
-        if (risk === 'WARNING_CHILLY') return '<div class="alert alert-info d-inline-block py-1 px-2 m-1 border-0 shadow-sm small">❄️ Trời lạnh</div>';
-        return '';
-    }
-
-    // --- 1. HÀM SEARCH ĐỊA ĐIỂM ---
-    function handleSearch() {
-        const query = document.getElementById('weather-search-input').value.trim();
-        const resultsList = document.getElementById('search-results-list');
-        
-        if (!query) {
-            resultsList.style.display = 'none';
-            return;
-        }
-
-        // Gọi API Search
-        fetch(`${API_SEARCH_URL}?q=${encodeURIComponent(query)}`)
-            .then(res => res.json())
-            .then(data => {
-                resultsList.innerHTML = ''; // Xóa kết quả cũ
-                if (data.length > 0) {
-                    data.forEach(item => {
-                        // Tạo item trong list
-                        const a = document.createElement('a');
-                        a.href = "#";
-                        a.className = "list-group-item list-group-item-action";
-                        a.innerHTML = `<strong>${item.name}</strong>`;
-                        
-                        // Sự kiện khi click vào một địa điểm
-                        a.onclick = (e) => {
-                            e.preventDefault();
-                            selectLocation(item.lat, item.lon, item.name);
-                        };
-                        resultsList.appendChild(a);
-                    });
-                    resultsList.style.display = 'block';
-                } else {
-                    resultsList.innerHTML = '<div class="list-group-item text-muted">Không tìm thấy kết quả</div>';
-                    resultsList.style.display = 'block';
-                }
-            })
-            .catch(err => console.error(err));
-    }
-
-    // --- 2. HÀM CHỌN ĐỊA ĐIỂM TỪ LIST ---
-    function selectLocation(lat, lon, name) {
-        // Ẩn list tìm kiếm
-        document.getElementById('search-results-list').style.display = 'none';
-        // Cập nhật ô input
-        document.getElementById('weather-search-input').value = name;
-        // Gọi hàm load thời tiết
-        loadWeatherData(lat, lon, name);
-    }
-
-    // --- 3. HÀM LOAD THỜI TIẾT ---
-    function loadWeatherData(lat = DEFAULT_LAT, lon = DEFAULT_LON, name = DEFAULT_NAME) {
-        const contentDiv = document.getElementById('weather-content');
-        const loadingDiv = document.getElementById('weather-loading');
-        const errorDiv = document.getElementById('weather-error');
-        
-        contentDiv.style.display = 'none';
-        errorDiv.style.display = 'none';
-        loadingDiv.style.display = 'block';
-
-        // Gọi API lấy thời tiết với toạ độ cụ thể
-        const url = `${API_FORECAST_URL}?lat=${lat}&lon=${lon}&name=${encodeURIComponent(name)}`;
-
-        fetch(url)
-            .then(response => response.json())
-            .then(data => {
-                if (data.error) throw new Error(data.error);
-                
-                // UI Update
-                document.getElementById('w-location').innerText = data.location_name; // Lấy tên từ API trả về
-                
-                const cur = data.current_weather;
-                document.getElementById('w-temp').innerText = cur.temperature;
-                document.getElementById('w-desc').innerText = cur.weather_desc;
-                document.getElementById('w-precip').innerText = cur.precipitation_sum;
-                document.getElementById('w-wind').innerText = cur.wind_max_kmh;
-                document.getElementById('w-icon').innerText = getWeatherIcon(cur.weather_desc);
-                
-                const riskContainer = document.getElementById('w-risks');
-                riskContainer.innerHTML = '';
-                if (cur.daily_risks && cur.daily_risks.length > 0) {
-                    cur.daily_risks.forEach(r => riskContainer.innerHTML += getRiskBadge(r));
-                } else {
-                    riskContainer.innerHTML = '<div class="alert alert-success d-inline-block py-1 px-3 m-0 border-0 shadow-sm">✅ Thời tiết đẹp</div>';
-                }
-
-                const forecastDiv = document.getElementById('forecast-container');
-                forecastDiv.innerHTML = '';
-                if (data.hourly_forecast && data.hourly_forecast.length > 0) {
-                    data.hourly_forecast.forEach(h => {
-                        const icon = getWeatherIcon(h.weather_desc);
-                        const html = `
-                            <div class="col-3 col-md-2 px-1 mb-2" style="min-width: 100px;">
-                                <div class="card h-100 border-0 shadow-sm text-center py-3" style="background-color: #f8f9fa;">
-                                    <div class="text-muted fw-bold">${h.hour}</div>
-                                    <div class="my-2 fs-2">${icon}</div>
-                                    <div class="fw-bold fs-5">${h.temp}°</div>
-                                    <div class="small text-muted text-truncate px-1" style="font-size: 0.8rem;" title="${h.weather_desc}">${h.weather_desc}</div>
-                                </div>
-                            </div>`;
-                        forecastDiv.innerHTML += html;
-                    });
-                } else {
-                     forecastDiv.innerHTML = '<div class="alert alert-warning">Không có dữ liệu dự báo theo giờ.</div>';
-                }
-
-                loadingDiv.style.display = 'none';
-                contentDiv.style.display = 'block';
-            })
-            .catch(err => {
-                console.error(err);
-                loadingDiv.style.display = 'none';
-                errorDiv.innerText = "Lỗi: " + err.message;
-                errorDiv.style.display = 'block';
-            });
-    }
-
-    // --- 4. CLICK NGOÀI THÌ ĐÓNG LIST SEARCH ---
-    document.addEventListener('click', function(e) {
-        const searchContainer = document.querySelector('.position-relative');
-        // Nếu click ra ngoài vùng search thì ẩn list
-        if (searchContainer && !searchContainer.contains(e.target)) {
-            document.getElementById('search-results-list').style.display = 'none';
-        }
-    });
-
-    // --- 5. EVENT SWITCH TAB (RESET VỀ MẶC ĐỊNH) ---
-    document.addEventListener('DOMContentLoaded', function() {
-        const weatherTabBtn = document.getElementById('weather-tab');
-        if (weatherTabBtn) {
-            weatherTabBtn.addEventListener('shown.bs.tab', function (e) {
-                // Xóa ô input
-                document.getElementById('weather-search-input').value = '';
-                document.getElementById('search-results-list').style.display = 'none';
-                
-                // Load lại mặc định (HCM)
-                loadWeatherData(); 
-            });
-        }
-    });
-</script>
 {% endblock %}

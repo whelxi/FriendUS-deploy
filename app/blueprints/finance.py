@@ -18,20 +18,14 @@ def add_room_transaction(room_id):
 
     if form.validate_on_submit():
         new_trans = Transaction(
-            amount=form.amount.data, description=form.description.data, type=form.type.data,
-            sender_id=current_user.id, status='pending', room_id=room.id 
+            amount=form.amount.data, 
+            description=form.description.data, 
+            type=form.type.data,
+            sender_id=current_user.id, 
+            status='pending', 
+            room_id=room.id,
+            receiver_id=form.receiver.data  # Chỉ gán receiver là thành viên trong phòng
         )
-        if form.is_outside.data and form.outsider_name.data:
-            o_name = form.outsider_name.data.strip()
-            outsider = Outsider.query.filter_by(name=o_name, creator_id=current_user.id).first()
-            if not outsider:
-                outsider = Outsider(name=o_name, creator_id=current_user.id)
-                db.session.add(outsider)
-                db.session.commit()
-            new_trans.outsider_id = outsider.id
-            new_trans.status = 'confirmed' 
-        else:
-            new_trans.receiver_id = form.receiver.data
         
         db.session.add(new_trans)
         db.session.commit()

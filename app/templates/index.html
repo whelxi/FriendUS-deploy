@@ -1,7 +1,7 @@
 {% extends "layout.html" %}
 
 {% block content %}
-<div class="row">
+<div class="row justify-content-center">
     
     <div class="col-md-8">
         
@@ -93,8 +93,7 @@
                         <span class="like-count">{{ post.likes|length }}</span> Likes
                     </span>
                     <span class="text-end">
-                        <span class="me-3">{{ post.comments.count() }} Comments</span> 
-                        <span class="me-1 share-count-total">{{ post.shares_count }}</span> Shares 
+                        <span>{{ post.comments.count() }} Comments</span> 
                     </span>
                 </div>
                 
@@ -112,10 +111,7 @@
                         <i class="bi bi-chat-dots"></i> Comment
                     </button>
 
-                    <button class="btn btn-action share-btn" 
-                            data-post-id="{{ post.id }}">
-                        <i class="bi bi-share"></i> Share
-                    </button>
+                    
                 </div>
 
                 <div class="collapse mt-3" id="comments-{{ post.id }}">
@@ -172,10 +168,7 @@
             <div class="alert alert-info">No posts found.</div>
         {% endfor %}
         
-        </div>
-
-    <div class="col-md-4">
-        </div>
+    </div>
 
 </div>
 
@@ -215,32 +208,7 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     });
 
-    // --- 2. Xử lý SHARE (Copy link + Đếm số) ---
-    document.querySelectorAll('.share-btn').forEach(btn => {
-        btn.addEventListener('click', function() {
-            const postId = this.dataset.postId;
-            
-            // FIX: Cần tìm span share count tổng thể để cập nhật
-            const totalShareSpan = btn.closest('.post-card').querySelector('.card-footer .share-count-total'); 
-
-            // Copy link vào clipboard
-            const postUrl = window.location.origin + `/post/${postId}`; 
-            navigator.clipboard.writeText(postUrl);
-
-            // Gọi API tăng đếm share
-            fetch(`/post/${postId}/share`, { method: 'POST' })
-            .then(res => res.json())
-            .then(data => {
-                if(data.status === 'success') {
-                    // Cập nhật số lượng tổng thể
-                    if(totalShareSpan) {
-                         totalShareSpan.innerText = data.shares;
-                    }
-                    alert('Link đã được sao chép và lượt chia sẻ đã tăng lên!');
-                }
-            });
-        });
-    });
+    
     
     // --- 3. Giữ lại logic theo dõi sở thích khi click vào Tag ---
     document.querySelectorAll('.post-tag').forEach(tag => {
