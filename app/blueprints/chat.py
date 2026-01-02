@@ -3,7 +3,8 @@ from flask_login import current_user, login_required
 from app.extensions import db, socketio
 from app.models import Room, Message, Activity, Constraint, Transaction, User, RoomRequest 
 from app.forms import CreateRoomForm, ActivityForm, ConstraintForm, TransactionForm
-from app.utils import auto_update_user_interest, score_from_matrix_personalized, check_conflicts, summarize_chat, UserTagScore
+from app.utils import auto_update_user_interest, score_from_matrix_personalized, check_conflicts, UserTagScore
+from app.ai_summary import SeaLionDialogueSystem # Import class mới
 
 chat_bp = Blueprint('chat', __name__)
 
@@ -24,19 +25,27 @@ def get_chat_summary(room_id):
     # Đảo ngược lại để đúng thứ tự thời gian (Cũ -> Mới) cho AI đọc
     messages.reverse()
     
-    # [QUAN TRỌNG] Format: "Username: Message content"
-    formatted_chats = [f"{msg.author.username}: {msg.body}" for msg in messages]
-
-    if not formatted_chats:
+    if not messages:
         return {"short": "Chưa có tin nhắn", "full": "Chưa có nội dung để tóm tắt"}
 
-    # Gọi hàm AI trong utils
-    short_sum, full_sum = summarize_chat(formatted_chats)
-    
-    return {
-        "short": short_sum,
-        "full": full_sum
-    }
+    # [CẬP NHẬT CHO SEALION] Chuyển đổi format sang List[Dict]
+    # SeaLion cần định dạng: [{"speaker": "Ten", "text": "Noi dung"}]
+    chat_history = [{"speaker": msg.author.username, "text": msg.body} for msg in messages]
+
+    # Gọi SeaLion System
+    try:
+        sealion = SeaLionDialogueSystem()
+        final_report = sealion.process(chat_history)
+        
+        # Vì SeaLion trả về một báo cáo dài (Report), ta dùng nó cho phần full.
+        # Phần short ta có thể để một câu dẫn nhập thân thiện.
+        return {
+            "short": "🦁 SeaLion đã tổng hợp xong tin nhắn của nhóm!",
+            "full": final_report
+        }
+    except Exception as e:
+        print(f"SeaLion Error: {e}")
+        return {"short": "Lỗi AI", "full": "Hệ thống đang bận, vui lòng thử lại sau."}
 
 @chat_bp.route('/chat', methods=['GET', 'POST'])
 @login_required

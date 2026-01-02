@@ -3,21 +3,14 @@ import secrets
 from PIL import Image
 from flask import current_app
 import datetime
-import google.generativeai as genai
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.metrics.pairwise import cosine_similarity
 from config import Config
-from app.models import UserTagScore, db
-from sqlalchemy.sql import func
+from app.extensions import db  # Lấy db từ nguồn gốc
+from app.models import UserTagScore # Lấy Model từ package models
+# -------------------------
 
-# --- CẤU HÌNH AI & THUẬT TOÁN ---
-# Nếu chưa có API KEY thì bọc try/except để app không crash
-try:
-    genai.configure(api_key=Config.GOOGLE_API_KEY)
-    model = genai.GenerativeModel('gemini-2.5-flash')
-except Exception as e:
-    print(f"Warning: Google AI Key missing or invalid. {e}")
-    model = None
+from sqlalchemy.sql import func
 
 # [THÊM] Định nghĩa mức điểm tối đa ở đầu file hoặc ngay trên hàm
 MAX_INTEREST_SCORE = 20.0
@@ -148,25 +141,6 @@ def check_conflicts(activities, constraints):
             conflicts[act.id] = act_conflicts
             
     return conflicts
-
-def summarize_chat(chats):
-    if not model: return "AI Error", "AI Error"
-    chat_lines = chats[-40:]
-    chat_text = "\n".join(chat_lines)
-    
-    # (Giữ nguyên prompt của bạn)
-    short_summary_prompt = f"Tóm tắt đoạn chat tiếng Việt sau đây thành một bản tóm tắt ngắn gọn, tối đa 30 từ... Đoạn chat:\n{chat_text}"
-    full_summary_prompt = f"Tóm tắt đoạn chat tiếng Việt sau đây thành một bản tóm tắt đầy đủ, tối đa 80 từ... Đoạn chat:\n{chat_text}"
-
-    try:
-        short_summary = model.generate_content(short_summary_prompt).text
-    except: short_summary = "Lỗi không thể tóm tắt"
-    
-    try:
-        full_summary = model.generate_content(full_summary_prompt).text
-    except: full_summary = "Lỗi không thể tóm tắt"
-    
-    return short_summary, full_summary
 
 # [NEW] Hàm tự động học: Cập nhật trọng số khi User tương tác
 def auto_update_user_interest(user_id, tags_list, weight_increment=1.0):

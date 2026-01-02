@@ -48,29 +48,22 @@ def get_headers():
 @login_required
 def api_search():
     query = request.args.get('query', '')
-    
-    # [FIX] Get the SERVICE KEY (for backend search)
-    service_key = current_app.config.get('VIETMAP_SERVICE_KEY', '')
-    
-    if not service_key:
-        print("ERROR: VIETMAP_SERVICE_KEY is missing in config.")
-        return jsonify({"error": "Missing Service Key"}), 500
-    
     if not query: return jsonify([])
 
-    url = "https://maps.vietmap.vn/api/autocomplete/v3"
+    # Sử dụng Nominatim (OpenStreetMap Search API)
+    url = "https://nominatim.openstreetmap.org/search"
     params = {
-        'apikey': service_key,  # Use Service Key here
-        'text': query
+        'q': query,
+        'format': 'json',
+        'addressdetails': 1,
+        'limit': 5,
+        'countrycodes': 'vn' # Giới hạn tìm kiếm ở VN
     }
-    
-    try:
-        resp = requests.get(url, params=params, headers=get_headers(), timeout=10)
-        
-        if resp.status_code != 200:
-            print(f"VietMap API Error [{resp.status_code}]: {resp.text}")
-            return jsonify({"error": f"API Error {resp.status_code}"}), resp.status_code
 
+    try:
+        # Nominatim BẮT BUỘC phải có User-Agent định danh
+        headers = {'User-Agent': 'FriendUsApp/1.0 (yourname@email.com)'}
+        resp = requests.get(url, params=params, headers=headers, timeout=10)
         return jsonify(resp.json())
     except Exception as e:
         print(f"Search Exception: {e}")
@@ -79,30 +72,44 @@ def api_search():
 @map_bp.route('/map/api/route')
 @login_required
 def api_route():
+    # Frontend gửi lên dạng: "lat,lon" (Ví dụ: 10.762,106.660)
     p1 = request.args.get('point1') 
     p2 = request.args.get('point2')
+    vehicle = request.args.get('vehicle', 'car')
     
-    service_key = current_app.config.get('VIETMAP_SERVICE_KEY', '')
-    
-    if not p1 or not p2:
-        return jsonify({"error": "Missing coordinates"}), 400
+    if not p1 or not p2: return jsonify({"error": "Missing coords"}), 400
 
-    url = "https://maps.vietmap.vn/api/route"
-    # [UPDATE] Nhận vehicle từ request, mặc định là car
-    vehicle_type = request.args.get('vehicle', 'car')
-    
-    params = {
-        'api-version': '1.1',
-        'apikey': service_key,
-        'point': [p1, p2], 
-        'vehicle': vehicle_type,
-        'points_encoded': False 
-    }
-    
     try:
-        resp = requests.get(url, params=params, headers=get_headers(), timeout=10)
+        # Tách chuỗi và xóa khoảng trắng thừa
+        lat1, lon1 = [x.strip() for x in p1.split(',')]
+        lat2, lon2 = [x.strip() for x in p2.split(',')]
+        
+        # Chọn profile cho OSRM
+        profile = 'driving'
+        if vehicle in ['bike', 'motorcycle']: profile = 'bike'
+        if vehicle == 'foot': profile = 'foot'
+
+        # OSRM yêu cầu format: {longitude},{latitude} (Ngược với Google Map)
+        # Endpoint: /route/v1/{profile}/{lon},{lat};{lon},{lat}
+        url = f"http://router.project-osrm.org/route/v1/{profile}/{lon1},{lat1};{lon2},{lat2}"
+        
+        params = {
+            'overview': 'full',       # Lấy toàn bộ chi tiết đường đi (tránh bị đường thẳng)
+            'geometries': 'geojson',  # Trả về format chuẩn để Leaflet vẽ
+            'steps': 'true'           # Lấy hướng dẫn rẽ trái/phải
+        }
+        
+        # Thêm User-Agent để tránh bị chặn bởi OSRM Demo server
+        headers = {'User-Agent': 'FriendUsApp/1.0'}
+        
+        resp = requests.get(url, params=params, headers=headers, timeout=10)
+        
+        if resp.status_code != 200:
+            return jsonify({"error": "OSRM API Error"}), resp.status_code
+            
         return jsonify(resp.json())
     except Exception as e:
+        print(f"Route Error: {e}")
         return jsonify({"error": str(e)}), 500
 
 @map_bp.route('/map/api/reverse')
@@ -110,27 +117,24 @@ def api_route():
 def api_reverse():
     lat = request.args.get('lat')
     lon = request.args.get('lon')
-    
-    # [FIX] Get the SERVICE KEY (for backend reverse geocoding)
-    service_key = current_app.config.get('VIETMAP_SERVICE_KEY', '')
 
-    if not lat or not lon: return jsonify([])
+    if not lat or not lon: return jsonify({})
 
-    url = "https://maps.vietmap.vn/api/reverse/v3"
+    url = "https://nominatim.openstreetmap.org/reverse"
     params = {
-        'apikey': service_key, # Use Service Key here
         'lat': lat, 
-        'lng': lon
+        'lon': lon,
+        'format': 'json',
+        'addressdetails': 1
     }
-    
+
     try:
-        resp = requests.get(url, params=params, headers=get_headers(), timeout=10)
+        headers = {'User-Agent': 'FriendUsApp/1.0'}
+        resp = requests.get(url, params=params, headers=headers, timeout=10)
         return jsonify(resp.json())
     except Exception as e:
-        print(f"Reverse Exception: {e}")
-        return jsonify([])
+        return jsonify({})
 
-# ... (Remaining routes like location_detail keep existing logic) ...
 @map_bp.route('/location/<int:location_id>', methods=['GET', 'POST'])
 @login_required
 def location_detail(location_id):

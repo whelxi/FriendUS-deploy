@@ -380,7 +380,9 @@
                 <div id="summary-loading" class="text-center py-3"><div class="spinner-border text-primary"></div><p>AI is thinking...</p></div>
                 <div id="summary-content" style="display: none;">
                     <h6 class="fw-bold">Tóm tắt ngắn</h6><p id="summary-short-text" class="lead fst-italic p-3 bg-light border rounded"></p>
-                    <hr><h6 class="fw-bold">Chi tiết</h6><p id="summary-full-text" class="p-3 bg-light border rounded" style="white-space: pre-line;"></p>
+                    <hr>
+<h6 class="fw-bold">Chi tiết</h6>
+<div id="summary-full-text" class="p-3 bg-light border rounded" style="overflow-y: auto; max-height: 400px;"></div>
                 </div>
             </div>
         </div>
@@ -389,6 +391,8 @@
 {% endblock %}
 
 {% block scripts %}
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
+    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
     <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
     
@@ -421,8 +425,18 @@
                     fetch(`/chat/summary/{{ room.id }}`).then(r => r.json()).then(data => {
                         document.getElementById('summary-loading').style.display = 'none';
                         document.getElementById('summary-content').style.display = 'block';
+                                
+                        // Phần ngắn (Text thường)
                         document.getElementById('summary-short-text').innerText = data.short || "Error";
-                        document.getElementById('summary-full-text').innerText = data.full || "Error";
+                                
+                        // Phần chi tiết (Markdown -> HTML)
+                        // Kiểm tra xem thư viện marked đã tải chưa, nếu chưa thì hiện text thô
+                        if (typeof marked !== 'undefined' && data.full) {
+                            document.getElementById('summary-full-text').innerHTML = marked.parse(data.full);
+                        } else {
+                            document.getElementById('summary-full-text').innerText = data.full || "Error";
+                        }
+                        
                     }).catch(e => { console.error(e); });
                 });
             }

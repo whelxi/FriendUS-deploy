@@ -16,7 +16,7 @@ class Config:
     # ngăn chặn triệt để việc đăng nhập nhầm vào tài khoản người khác.
     SECRET_KEY = os.environ.get('SECRET_KEY') or secrets.token_hex(32)
 
-    # Database - [ĐÚNG RỒI]
+    # Database
     database_url = os.environ.get('DATABASE_URL')
     if database_url and database_url.startswith("postgres://"):
         database_url = database_url.replace("postgres://", "postgresql://", 1)
@@ -26,10 +26,7 @@ class Config:
     # Google Authentication
     GOOGLE_CLIENT_ID = os.environ.get('GOOGLE_CLIENT_ID')
     GOOGLE_CLIENT_SECRET = os.environ.get('GOOGLE_CLIENT_SECRET')
-
-    # --- VIETMAP KEYS ---
-    VIETMAP_TILE_KEY = os.environ.get('VIETMAP_TILE_KEY')
-    VIETMAP_SERVICE_KEY = os.environ.get('VIETMAP_SERVICE_KEY')
-
-    # Gemini
-    GOOGLE_API_KEY = os.environ.get('GOOGLE_API_KEY')
+    
+    # SeaLion AI
+    SEALION_API_KEY = os.environ.get('SEALION_API_KEY') 
+    SEALION_BASE_URL = "https://api.sea-lion.ai/v1"

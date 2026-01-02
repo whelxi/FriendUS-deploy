@@ -11,12 +11,20 @@ FRIENDUS
 │   │   ├── map.py
 │   │   ├── weather.py
 │   │   └── planner.py
+│   ├── models/                  
+│   │   ├── __init__.py          
+│   │   ├── user.py             
+│   │   ├── chat.py             
+│   │   ├── post.py          
+│   │   ├── location.py          
+│   │   ├── finance.py         
+│   │   └── planner.py         
 │   ├── debug/
 │   ├── static/
 │   ├── templates
 │   │   ├── account.html
 │   │   ├── chat_lobby.html
-│   │   ├── chat_room.html  
+│   │   ├── chat_room.html  
 │   │   ├── chat.html
 │   │   ├── finance.html
 │   │   ├── index.html
@@ -27,17 +35,14 @@ FRIENDUS
 │   │   ├── map.html
 │   │   ├── planner.html
 │   │   ├── profile.html
-│   │   ├──onboarding.html
-│   │   ├──weather.html
+│   │   ├── onboarding.html
+│   │   ├── weather.html
 │   │   └── register.html
 │   ├── __init__.py
 │   ├── events.py
 │   ├── extensions.py
 │   ├── forms.py
-│   ├── models.py
-│   └── utils.py
-├── auth
-│   └── app.py
+│   └── utils.py                 
 ├── cache/
 ├── .gitignore
 ├── config.py
