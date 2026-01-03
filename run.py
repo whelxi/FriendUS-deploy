@@ -9,8 +9,7 @@ load_dotenv()
 # Tạo app Flask
 app = create_app()
 
-# Cố gắng import hàm seed_database từ file seed_data.py
-# Để tránh lỗi nếu bạn lỡ xóa file seed_data.py sau này
+# --- SETUP DATABASE SEEDING ---
 try:
     from seed_data import seed_database
     HAS_SEED_SCRIPT = True
@@ -21,23 +20,30 @@ if __name__ == '__main__':
     print("----------------------------------------------------------------")
     
     # --- ĐOẠN CODE AUTO SEED ---
+    # Lưu ý: Trên Render, nếu bạn dùng SQLite, dữ liệu sẽ mất sau mỗi lần Deploy
+    # nên việc auto-seed này là CẦN THIẾT nếu bạn muốn có dữ liệu mẫu ngay.
     if HAS_SEED_SCRIPT:
         print("🌱 Đang tự động seed dữ liệu mẫu (Auto-seeding)...")
         try:
-            # Gọi hàm seed_database() từ file seed_data.py
-            # Hàm này sẽ xóa DB cũ và tạo lại dữ liệu mới (bao gồm chat logs > 300 dòng)
-            seed_database()
-            print("✅ Seed dữ liệu thành công!")
+            # Bạn có thể thêm biến môi trường ENABLE_SEED=False trên Render nếu muốn tắt nó
+            if os.environ.get('ENABLE_SEED', 'True') == 'True':
+                seed_database()
+                print("✅ Seed dữ liệu thành công!")
+            else:
+                print("⏭️  Bỏ qua seed do cấu hình ENABLE_SEED=False")
         except Exception as e:
             print(f"⚠️  Lỗi khi seed dữ liệu: {e}")
-            print("   -> Server vẫn sẽ tiếp tục chạy với dữ liệu cũ (nếu có).")
     else:
         print("⚠️  Không tìm thấy file seed_data.py, bỏ qua bước seed dữ liệu.")
     
     print("----------------------------------------------------------------")
-    print("🚀 Server is running! Click the link below to open:")
-    print("http://127.0.0.1:5000")
+    
+    # --- QUAN TRỌNG: CẤU HÌNH PORT CHO RENDER ---
+    # Lấy PORT từ biến môi trường Render, nếu không có (chạy local) thì lấy 5000
+    port = int(os.environ.get("PORT", 5000))
+    
+    print(f"🚀 Server is running on port {port}!")
     print("----------------------------------------------------------------")
     
-    # Sử dụng socketio.run thay vì app.run
-    socketio.run(app, host='0.0.0.0', port=5000, debug=True, allow_unsafe_werkzeug=True)
+    # Start app
+    socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
