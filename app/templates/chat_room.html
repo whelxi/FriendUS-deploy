@@ -223,9 +223,9 @@
                 </div>
 
                 <div class="tab-pane fade h-100" id="finance-panel" role="tabpanel">
-                     <div class="p-4 h-100 overflow-auto d-flex justify-content-center align-items-center text-muted">
-                        <em>Finance content here...</em>
-                     </div>
+                    <iframe src="{{ url_for('finance.view_finance', room_id=room.id, hide_nav=1) }}" 
+                            style="width: 100%; height: 100%; border: none; display: block;" 
+                            title="Finance Module"></iframe>
                 </div>
 
                 <div class="tab-pane fade h-100 w-100" id="map-panel" role="tabpanel">
@@ -285,9 +285,9 @@
                 </div>
 
                 <div class="tab-pane fade h-100" id="weather-panel" role="tabpanel">
-                     <div class="p-4 h-100 overflow-auto d-flex justify-content-center align-items-center text-muted">
-                        <em>Weather content here...</em>
-                     </div>
+                    <iframe src="{{ url_for('weather.view_weather', room_id=room.id, hide_nav=1) }}" 
+                            style="width: 100%; height: 100%; border: none; display: block;" 
+                            title="Weather Module"></iframe>
                 </div>
             </div>
         </div>
