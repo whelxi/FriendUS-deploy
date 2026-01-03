@@ -201,372 +201,368 @@
 </script>
 {% endblock %}
 {% block scripts %}
-<link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
-<script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 
-<style>
-    /* Fix cho icon mặc định của Leaflet đôi khi bị lỗi đường dẫn */
-    .leaflet-default-icon-path { background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png); }
-</style>
+    <script>
+    // --- 1. CHAT SOCKET LOGIC (Giữ nguyên) ---
+    document.addEventListener('DOMContentLoaded', (event) => {
+        var socket = io();
+        const roomName = '{{ room.name }}';
+        const currentUsername = '{{ current_user.username }}';
+        const messageContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const typingStatus = document.getElementById('typing-status');
+        let typingTimer;
 
-<script>
-class MapManager {
-    constructor() {
-        this.config = JSON.parse(document.getElementById('map-config').textContent);
-        this.map = null;
-        this.layers = { route: null, markers: [] };
-        
-        this.searchTimeout = null;
-        this.transportMode = 'car';
-        this.activeInput = 'main'; 
-        this.locations = { start: null, end: null };
-        this.currentSelection = null;
-        this.userLocation = null; // Lưu vị trí user để dùng lại
+        function scrollToBottom() { messageContainer.scrollTop = messageContainer.scrollHeight; }
 
-        this.dom = {
-            searchBar: document.getElementById('floating-search-bar'),
-            sidebar: document.getElementById('sidebar-panel'),
-            bottomCard: document.getElementById('bottom-card'),
-            results: document.getElementById('search-results'),
-            routePanel: document.getElementById('route-panel-content'),
-            inputs: {
-                main: document.getElementById('main-search-input'),
-                start: document.getElementById('input-start'),
-                end: document.getElementById('input-end')
-            },
-            infoName: document.getElementById('info-name'),
-            infoAddr: document.getElementById('info-addr'),
-            btnCardRoute: document.getElementById('btn-card-directions')
-        };
-
-        this.init();
-    }
-
-    init() {
-        // [OSM] Init Map
-        this.map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 13);
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-            maxZoom: 19, attribution: '© OpenStreetMap'
-        }).addTo(this.map);
-        L.control.zoom({ position: 'bottomright' }).addTo(this.map);
-
-        // Lấy vị trí user ngay khi vào web (silent) để sẵn sàng dùng
-        this.preloadUserLocation();
-
-        this.setupListeners();
-        this.map.on('click', (e) => this.handleMapClick(e));
-    }
-
-    preloadUserLocation() {
-        if (navigator.geolocation) {
-            navigator.geolocation.getCurrentPosition(pos => {
-                this.userLocation = { 
-                    lat: pos.coords.latitude, 
-                    lon: pos.coords.longitude, 
-                    name: "Your Location", 
-                    isUser: true 
-                };
-                // Vẽ chấm xanh vị trí hiện tại
-                L.circleMarker([this.userLocation.lat, this.userLocation.lon], {
-                    radius: 8, fillColor: "#4285F4", color: "#fff", weight: 2, opacity: 1, fillOpacity: 1
-                }).addTo(this.map);
-            }, err => console.log("Geo permission denied"));
+        function addMessage(data) {
+            let isSelf = data.username === currentUsername;
+            let bubbleClass = isSelf ? 'message-self' : 'message-other';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message-bubble ${bubbleClass}`;
+            msgDiv.innerHTML = `<strong>${isSelf ? 'You' : data.username}</strong>: ${data.msg}`;
+            messageContainer.appendChild(msgDiv);
+            scrollToBottom();
         }
-    }
 
-    setupListeners() {
-        document.getElementById('btn-open-routes').onclick = () => this.setMode('route');
-        document.getElementById('btn-close-sidebar').onclick = () => this.setMode('search');
-
-        // Nút chỉ đường từ thẻ thông tin địa điểm
-        this.dom.btnCardRoute.onclick = () => {
-            if (this.currentSelection) {
-                this.setMode('route');
-                // Đích đến là địa điểm đang chọn
-                this.selectLocation(this.currentSelection, 'end');
-                // Focus vào ô "Điểm đi" và hiện gợi ý ngay
-                this.dom.inputs.start.focus();
-            }
-        };
-
-        ['main', 'start', 'end'].forEach(key => {
-            const input = this.dom.inputs[key];
-            
-            // [FIX] Sự kiện Focus: Hiện ngay Your Location nếu ô trống
-            input.addEventListener('focus', () => {
-                this.activeInput = key;
-                if (input.value.trim() === '') {
-                    this.renderDefaultSuggestions(); 
-                }
-            });
-
-            input.addEventListener('input', () => {
-                if (input.value.trim() === '') {
-                    this.renderDefaultSuggestions();
-                } else {
-                    clearTimeout(this.searchTimeout);
-                    this.searchTimeout = setTimeout(() => this.performSearch(input.value), 400);
-                }
-            });
+        socket.on('connect', () => { socket.emit('join', { 'room': roomName }); });
+        socket.on('load_history', msgs => { messageContainer.innerHTML=''; msgs.forEach(addMessage); });
+        socket.on('receive_message', data => { addMessage(data); typingStatus.textContent = ''; });
+        socket.on('status', data => { messageContainer.innerHTML += `<div class="text-center small text-muted"><em>${data.msg}</em></div>`; });
+        socket.on('user_list', data => {
+             const c = document.getElementById('user-list-container'); c.innerHTML = '';
+             document.getElementById('user-count').textContent = data.online.length + data.offline.length;
+             data.online.forEach(u => c.innerHTML += `<div class="member-item"><div class="member-avatar">${u[0].toUpperCase()}<span class="status-dot status-online"></span></div><div class="small">${u}</div></div>`);
+             data.offline.forEach(u => c.innerHTML += `<div class="member-item"><div class="member-avatar">${u[0].toUpperCase()}<span class="status-dot status-offline"></span></div><div class="small">${u}</div></div>`);
         });
 
-        document.getElementById('btn-trigger-search').onclick = () => this.performSearch(this.dom.inputs.main.value);
-
-        // Nút chọn phương tiện
-        const modeBtns = document.querySelectorAll('.mode-btn');
-        modeBtns.forEach(btn => {
-            btn.onclick = () => {
-                modeBtns.forEach(b => b.classList.remove('active'));
-                btn.classList.add('active');
-                this.transportMode = btn.getAttribute('data-mode');
-                if (this.locations.start && this.locations.end) this.calculateRoute();
-            };
+        document.getElementById('chat-form').addEventListener('submit', e => {
+            e.preventDefault(); 
+            let msg = messageInput.value.trim();
+            if (msg) { socket.emit('send_message', { 'msg': msg, 'room': roomName }); messageInput.value = ''; }
         });
-    }
-
-    // [FIX] Hàm hiển thị gợi ý mặc định (Your Location)
-    renderDefaultSuggestions() {
-        this.dom.results.innerHTML = '';
-        this.dom.results.style.display = 'block';
-
-        const myLoc = document.createElement('div');
-        myLoc.className = 'result-item';
-        // Style đặc biệt cho Your Location
-        myLoc.innerHTML = `
-            <div style="background: #e8f0fe; padding: 8px; border-radius: 50%; display: flex; align-items: center; justify-content: center; margin-right: 12px;">
-                <i class="bi bi-cursor-fill" style="color:#1a73e8; font-size: 16px;"></i>
-            </div>
-            <span class="result-name" style="color: #1a73e8; font-weight: 500;">Your Location</span>`;
         
-        myLoc.onclick = () => {
-            if (this.userLocation) {
-                this.selectLocation(this.userLocation, this.activeInput);
-            } else {
-                // Nếu chưa có vị trí (do chưa cấp quyền), hỏi lại
-                this.getUserLocation().then(loc => {
-                    this.userLocation = loc;
-                    this.selectLocation(loc, this.activeInput);
+        messageInput.addEventListener('input', () => {
+            socket.emit('typing', { room: roomName });
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => socket.emit('stopped_typing', { room: roomName }), 1000);
+        });
+        socket.on('typing_status', d => typingStatus.textContent = d.isTyping ? `${d.username} is typing...` : '');
+    });
+
+    // --- 2. MAP LOGIC (Đã thêm Kill Switch cho Popup) ---
+    class MapManager {
+        constructor() {
+            this.config = JSON.parse(document.getElementById('map-config').textContent);
+            this.map = null;
+            this.layers = { route: null, markers: [] };
+            this.searchTimeout = null;
+            this.transportMode = 'car';
+            this.activeInput = 'main'; 
+            this.locations = { start: null, end: null };
+            this.currentSelection = null;
+            this.userLocation = null;
+
+            this.dom = {
+                searchBar: document.getElementById('floating-search-bar'),
+                sidebar: document.getElementById('map-sidebar-panel'),
+                bottomCard: document.getElementById('bottom-card'),
+                results: document.getElementById('search-results'),
+                routePanel: document.getElementById('route-panel-content'),
+                inputs: {
+                    main: document.getElementById('main-search-input'),
+                    start: document.getElementById('input-start'),
+                    end: document.getElementById('input-end')
+                },
+                infoName: document.getElementById('info-name'),
+                infoAddr: document.getElementById('info-addr'),
+                btnCardRoute: document.getElementById('btn-card-directions')
+            };
+        }
+
+        initMap() {
+            if(this.map) return; 
+            this.map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19, attribution: '© OpenStreetMap'
+            }).addTo(this.map);
+            L.control.zoom({ position: 'bottomright' }).addTo(this.map);
+
+            this.preloadUserLocation();
+            this.setupListeners();
+            this.map.on('click', (e) => this.handleMapClick(e));
+        }
+
+        preloadUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    this.userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: "Your Location", isUser: true };
+                    L.circleMarker([this.userLocation.lat, this.userLocation.lon], {
+                        radius: 8, fillColor: "#4285F4", color: "#fff", weight: 2, opacity: 1, fillOpacity: 1
+                    }).addTo(this.map);
                 });
             }
-        };
-        this.dom.results.appendChild(myLoc);
-    }
-
-    async handleMapClick(e) {
-        if (this.mode === 'route') return;
-        const { lat, lng } = e.latlng;
-        this.showBottomCard(lat, lng, "Dropped Pin", "Fetching...");
-        
-        try {
-            const res = await fetch(`${this.config.urls.reverse}?lat=${lat}&lon=${lng}`);
-            const data = await res.json();
-            const addr = data.display_name || "Unknown address";
-            const name = addr.split(',')[0];
-            this.showBottomCard(lat, lng, name, addr);
-        } catch (err) { console.error(err); }
-    }
-
-    showBottomCard(lat, lng, name, addr) {
-        this.currentSelection = { lat, lon: lng, name };
-        this.clearMarkers('search');
-        
-        const marker = L.marker([lat, lng]).addTo(this.map);
-        this.layers.markers.push({ type: 'search', obj: marker });
-
-        this.map.flyTo([lat, lng], 16);
-        this.dom.infoName.innerText = name;
-        this.dom.infoAddr.innerText = addr;
-        this.dom.bottomCard.classList.add('visible');
-        this.dom.results.style.display = 'none';
-    }
-
-    setMode(mode) {
-        this.mode = mode;
-        if (mode === 'route') {
-            this.dom.searchBar.style.opacity = '0'; 
-            this.dom.searchBar.style.pointerEvents = 'none'; 
-            this.dom.bottomCard.classList.remove('visible'); 
-            this.dom.sidebar.classList.add('active');
-            
-            // Nếu đã chọn 1 điểm ở search bar, tự điền vào điểm đến
-            if (this.dom.inputs.main.value && !this.locations.end) {
-                // Logic: Copy từ main sang end
-                // Cần copy cả object location chứ không chỉ text
-                if (this.currentSelection) {
-                    this.selectLocation(this.currentSelection, 'end');
-                }
-            }
-        } else {
-            this.dom.searchBar.style.opacity = '1';
-            this.dom.searchBar.style.pointerEvents = 'auto';
-            this.dom.sidebar.classList.remove('active');
-            this.clearRoute();
         }
-    }
 
-    async getUserLocation() {
-        return new Promise((resolve, reject) => {
-            if (!navigator.geolocation) { alert("Geo not supported"); return reject(); }
-            navigator.geolocation.getCurrentPosition(
-                pos => resolve({ lat: pos.coords.latitude, lon: pos.coords.longitude, name: "Your Location", isUser: true }),
-                err => { alert("Cannot get location"); reject(err); }, 
-                { enableHighAccuracy: true }
-            );
-        });
-    }
+        hideResults() {
+            this.dom.results.style.display = 'none';
+        }
 
-    async performSearch(query) {
-        if (!query || query.length < 2) { this.dom.results.style.display = 'none'; return; }
-        try {
-            const res = await fetch(`${this.config.urls.search}?query=${encodeURIComponent(query)}`);
-            const data = await res.json();
-            this.renderResults(data);
-        } catch (e) { console.error(e); }
-    }
-
-    renderResults(data) {
-        this.dom.results.innerHTML = '';
-        this.dom.results.style.display = 'block';
-
-        // Luôn hiện Your Location ở đầu danh sách tìm kiếm
-        const myLoc = document.createElement('div');
-        myLoc.className = 'result-item';
-        myLoc.innerHTML = '<i class="bi bi-cursor-fill result-icon" style="color:#1a73e8"></i> <span class="result-name">Your Location</span>';
-        myLoc.onclick = () => {
-            if (this.userLocation) this.selectLocation(this.userLocation, this.activeInput);
-            else this.getUserLocation().then(loc => this.selectLocation(loc, this.activeInput));
-        };
-        this.dom.results.appendChild(myLoc);
-
-        data.forEach(place => {
-            const item = document.createElement('div');
-            item.className = 'result-item';
-            const displayName = place.display_name;
-            const namePart = displayName.split(',')[0];
+        setupListeners() {
+            document.getElementById('btn-open-routes').onclick = () => this.setMode('route');
+            document.getElementById('btn-close-sidebar').onclick = () => this.setMode('search');
             
-            item.innerHTML = `
-                <i class="bi bi-geo-alt result-icon"></i>
-                <div class="result-text">
-                    <span class="result-name">${namePart}</span>
-                    <span class="result-addr" style="font-size:11px; display:block; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; max-width:300px;">${displayName}</span>
-                </div>`;
-            
-            item.onclick = () => {
-                const loc = { lat: parseFloat(place.lat), lon: parseFloat(place.lon), name: namePart };
-                if (this.activeInput === 'main') {
-                    this.showBottomCard(loc.lat, loc.lon, loc.name, displayName);
-                    this.dom.inputs.main.value = loc.name;
-                } else {
-                    this.selectLocation(loc, this.activeInput);
+            // [KILL SWITCH FIX] Xử lý nút chỉ đường
+            this.dom.btnCardRoute.onclick = () => {
+                if (this.currentSelection) {
+                    this.setMode('route');
+                    this.selectLocation(this.currentSelection, 'end');
+                    
+                    // 1. Ép ẩn ngay lập tức
+                    this.hideResults();
+
+                    // 2. Bỏ focus (con trỏ chuột) khỏi ô input Start/End
+                    // Để ngăn trình duyệt tự động kích hoạt sự kiện "focus" -> gọi lại gợi ý
+                    if (document.activeElement) document.activeElement.blur();
+                    this.dom.inputs.start.blur();
+                    this.dom.inputs.end.blur();
+
+                    // 3. Chờ 100ms để "giết" lần cuối nếu nó cố tình hiện lại
+                    setTimeout(() => {
+                        this.hideResults();
+                    }, 100);
                 }
             };
-            this.dom.results.appendChild(item);
-        });
-    }
 
-    selectLocation(loc, inputType) {
-        this.dom.results.style.display = 'none';
-        this.dom.inputs[inputType].value = loc.name;
-        this.locations[inputType] = loc;
+            // Click ra ngoài thì đóng gợi ý
+            document.addEventListener('click', (e) => {
+                const isClickInsideSearch = this.dom.searchBar.contains(e.target);
+                const isClickInsideResults = this.dom.results.contains(e.target);
+                // Nếu click ra ngoài VÀ không phải click vào input trong sidebar
+                if (!isClickInsideSearch && !isClickInsideResults && !this.dom.sidebar.contains(e.target)) {
+                    this.hideResults();
+                }
+            });
 
-        if (!loc.isUser) {
-            this.clearMarkers(inputType);
-            const marker = L.marker([loc.lat, loc.lon]).addTo(this.map);
-            this.layers.markers.push({ type: inputType, obj: marker });
-        }
-        
-        if (this.locations.start && this.locations.end) {
-            this.calculateRoute();
-        }
-    }
-    
-    clearMarkers(type) {
-        this.layers.markers = this.layers.markers.filter(m => {
-            if (m.type === type) { this.map.removeLayer(m.obj); return false; }
-            return true;
-        });
-    }
+            ['main', 'start', 'end'].forEach(key => {
+                const input = this.dom.inputs[key];
+                input.addEventListener('focus', () => {
+                    this.activeInput = key;
+                    if (input.value.trim() === '') this.renderDefaultSuggestions(); 
+                });
+                input.addEventListener('input', () => {
+                    if (input.value.trim() === '') this.renderDefaultSuggestions();
+                    else {
+                        clearTimeout(this.searchTimeout);
+                        this.searchTimeout = setTimeout(() => this.performSearch(input.value), 400);
+                    }
+                });
+                input.addEventListener('keydown', (e) => {
+                    if (e.key === 'Enter') this.hideResults();
+                });
+            });
 
-    async calculateRoute() {
-        const p1 = `${this.locations.start.lat},${this.locations.start.lon}`;
-        const p2 = `${this.locations.end.lat},${this.locations.end.lon}`;
-        
-        this.dom.routePanel.innerHTML = '<div class="p-4 text-center text-muted">Calculating route...</div>';
+            document.getElementById('btn-trigger-search').onclick = () => {
+                this.performSearch(this.dom.inputs.main.value);
+                this.hideResults();
+            };
 
-        try {
-            const url = `${this.config.urls.route}?point1=${p1}&point2=${p2}&vehicle=${this.transportMode}`;
-            const res = await fetch(url);
-            const data = await res.json();
-
-            if (data.routes && data.routes[0]) {
-                const route = data.routes[0];
-                // [FIX] Sử dụng geometry trả về từ OSRM (đã được backend xin format GeoJSON)
-                this.drawRoute(route.geometry); 
-                this.renderInstructions(route);
-                
-                const bounds = L.geoJSON(route.geometry).getBounds();
-                this.map.fitBounds(bounds, { padding: [50, 50] });
-            } else {
-                this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">No route found.</div>';
-            }
-        } catch (e) {
-            console.error(e);
-            this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">Error calculating route.</div>';
-        }
-    }
-
-    renderInstructions(route) {
-        const dist = (route.distance / 1000).toFixed(1); 
-        const time = Math.round(route.duration / 60); 
-
-        let html = `
-            <div class="route-summary">
-                <span class="summary-time">${time} min</span>
-                <span class="summary-dist">(${dist} km)</span>
-            </div>`;
-        
-        if (route.legs && route.legs[0].steps) {
-            route.legs[0].steps.forEach(step => {
-                // Tinh chỉnh text hướng dẫn
-                let text = step.maneuver.type || 'continue';
-                if (step.maneuver.modifier) text += ` ${step.maneuver.modifier}`;
-                if (step.name) text += ` on ${step.name}`;
-                
-                html += `
-                    <div class="instruction-step">
-                        <i class="bi bi-arrow-right step-icon"></i>
-                        <div style="flex:1">
-                            <div class="step-text" style="text-transform: capitalize;">${text.replace(/_/g, ' ')}</div>
-                            <div class="step-dist">${step.distance.toFixed(0)}m</div>
-                        </div>
-                    </div>`;
+            const modeBtns = document.querySelectorAll('.mode-btn');
+            modeBtns.forEach(btn => {
+                btn.onclick = () => {
+                    modeBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    this.transportMode = btn.getAttribute('data-mode');
+                    if (this.locations.start && this.locations.end) this.calculateRoute();
+                };
             });
         }
-        this.dom.routePanel.innerHTML = html;
-    }
 
-    drawRoute(geometry) {
-        if (this.layers.route) this.map.removeLayer(this.layers.route);
-        // OSRM trả về geometry GeoJSON, Leaflet vẽ trực tiếp được
-        this.layers.route = L.geoJSON(geometry, {
-            style: { color: '#1a73e8', weight: 6, opacity: 0.8 }
-        }).addTo(this.map);
-    }
-
-    clearRoute() {
-        if (this.layers.route) {
-            this.map.removeLayer(this.layers.route);
-            this.layers.route = null;
+        renderDefaultSuggestions() {
+            this.dom.results.innerHTML = '';
+            this.dom.results.style.display = 'block';
+            const myLoc = document.createElement('div');
+            myLoc.className = 'result-item';
+            myLoc.innerHTML = `<div style="background: #e8f0fe; padding: 8px; border-radius: 50%; margin-right: 12px;"><i class="bi bi-cursor-fill" style="color:#1a73e8;"></i></div><span class="result-name" style="color: #1a73e8; font-weight: 500;">Your Location</span>`;
+            myLoc.onclick = (e) => {
+                e.stopPropagation();
+                if (this.userLocation) {
+                    this.selectLocation(this.userLocation, this.activeInput);
+                    this.hideResults();
+                } else alert("Location permission needed.");
+            };
+            this.dom.results.appendChild(myLoc);
         }
-        this.clearMarkers('start');
-        this.clearMarkers('end');
-        this.locations = { start: null, end: null };
-        this.dom.inputs.start.value = '';
-        this.dom.inputs.end.value = '';
-        this.dom.routePanel.innerHTML = '<div style="padding: 30px; text-align: center; color: #70757a;"><i class="bi bi-map" style="font-size: 40px; color: #dfe1e5;"></i><p style="margin-top: 10px;">Select a destination to view route.</p></div>';
-    }
-}
 
-document.addEventListener('DOMContentLoaded', () => new MapManager());
-</script>
+        async handleMapClick(e) {
+            this.hideResults(); 
+            if (this.mode === 'route') return;
+            const { lat, lng } = e.latlng;
+            this.showBottomCard(lat, lng, "Dropped Pin", "Fetching...");
+            try {
+                const res = await fetch(`${this.config.urls.reverse}?lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                const addr = data.display_name || "Unknown address";
+                this.showBottomCard(lat, lng, addr.split(',')[0], addr);
+            } catch (err) { console.error(err); }
+        }
+
+        showBottomCard(lat, lng, name, addr) {
+            this.currentSelection = { lat, lon: lng, name };
+            this.clearMarkers('search');
+            const marker = L.marker([lat, lng]).addTo(this.map);
+            this.layers.markers.push({ type: 'search', obj: marker });
+            this.map.flyTo([lat, lng], 16);
+            this.dom.infoName.innerText = name;
+            this.dom.infoAddr.innerText = addr;
+            this.dom.bottomCard.classList.add('visible');
+            this.hideResults();
+        }
+
+        setMode(mode) {
+            this.mode = mode;
+            this.hideResults(); // [QUAN TRỌNG] Luôn ẩn kết quả khi chuyển mode
+
+            if (mode === 'route') {
+                this.dom.searchBar.style.opacity = '0'; 
+                this.dom.searchBar.style.pointerEvents = 'none'; 
+                this.dom.bottomCard.classList.remove('visible'); 
+                this.dom.sidebar.classList.add('active');
+                if (this.dom.inputs.main.value && this.currentSelection && !this.locations.end) {
+                    this.selectLocation(this.currentSelection, 'end');
+                }
+            } else {
+                this.dom.searchBar.style.opacity = '1';
+                this.dom.searchBar.style.pointerEvents = 'auto';
+                this.dom.sidebar.classList.remove('active');
+                this.clearRoute();
+            }
+        }
+
+        async performSearch(query) {
+            if (!query || query.length < 2) { this.hideResults(); return; }
+            try {
+                const res = await fetch(`${this.config.urls.search}?query=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                this.renderResults(data);
+            } catch (e) { console.error(e); }
+        }
+
+        renderResults(data) {
+            this.dom.results.innerHTML = '';
+            this.dom.results.style.display = 'block';
+            
+            const myLoc = document.createElement('div');
+            myLoc.className = 'result-item';
+            myLoc.innerHTML = `<i class="bi bi-cursor-fill result-icon" style="color:#1a73e8"></i> <span class="result-name">Your Location</span>`;
+            myLoc.onclick = (e) => {
+                e.stopPropagation();
+                if (this.userLocation) {
+                    this.selectLocation(this.userLocation, this.activeInput);
+                    this.hideResults();
+                }
+            };
+            this.dom.results.appendChild(myLoc);
+
+            data.forEach(place => {
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `<i class="bi bi-geo-alt result-icon"></i><div class="result-text"><span class="result-name">${place.display_name.split(',')[0]}</span><span class="result-addr" style="font-size:11px; display:block;">${place.display_name}</span></div>`;
+                item.onclick = (e) => {
+                    e.stopPropagation();
+                    const loc = { lat: parseFloat(place.lat), lon: parseFloat(place.lon), name: place.display_name.split(',')[0] };
+                    if (this.activeInput === 'main') {
+                        this.showBottomCard(loc.lat, loc.lon, loc.name, place.display_name);
+                        this.dom.inputs.main.value = loc.name;
+                    } else {
+                        this.selectLocation(loc, this.activeInput);
+                    }
+                    this.hideResults();
+                };
+                this.dom.results.appendChild(item);
+            });
+        }
+
+        selectLocation(loc, inputType) {
+            this.hideResults();
+            this.dom.inputs[inputType].value = loc.name;
+            this.locations[inputType] = loc;
+            if (!loc.isUser) {
+                this.clearMarkers(inputType);
+                const marker = L.marker([loc.lat, loc.lon]).addTo(this.map);
+                this.layers.markers.push({ type: inputType, obj: marker });
+            }
+            if (this.locations.start && this.locations.end) this.calculateRoute();
+        }
+        
+        clearMarkers(type) {
+            this.layers.markers = this.layers.markers.filter(m => {
+                if (m.type === type) { this.map.removeLayer(m.obj); return false; }
+                return true;
+            });
+        }
+
+        async calculateRoute() {
+            const p1 = `${this.locations.start.lat},${this.locations.start.lon}`;
+            const p2 = `${this.locations.end.lat},${this.locations.end.lon}`;
+            this.dom.routePanel.innerHTML = '<div class="p-4 text-center text-muted">Calculating route...</div>';
+            try {
+                const url = `${this.config.urls.route}?point1=${p1}&point2=${p2}&vehicle=${this.transportMode}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.routes && data.routes[0]) {
+                    this.drawRoute(data.routes[0].geometry); 
+                    this.renderInstructions(data.routes[0]);
+                } else this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">No route found.</div>';
+            } catch (e) { this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">Error calculating route.</div>'; }
+        }
+
+        renderInstructions(route) {
+            const dist = (route.distance / 1000).toFixed(1); 
+            const time = Math.round(route.duration / 60); 
+            let html = `<div style="padding:16px; background:#f8f9fa; border-bottom:1px solid #e8eaed;"><span style="font-size:24px; color:#188038; font-weight:500;">${time} min</span><span style="color:#5f6368; margin-left:8px;">(${dist} km)</span></div>`;
+            route.legs[0].steps.forEach(step => {
+                html += `<div style="padding:12px 16px; border-bottom:1px solid #f1f3f4; display:flex; gap:12px;"><i class="bi bi-arrow-right" style="color:#5f6368;"></i><div><div style="font-size:14px;">${step.maneuver.type} ${step.name || ''}</div><div style="font-size:12px; color:#70757a;">${step.distance.toFixed(0)}m</div></div></div>`;
+            });
+            this.dom.routePanel.innerHTML = html;
+        }
+
+        drawRoute(geometry) {
+            if (this.layers.route) this.map.removeLayer(this.layers.route);
+            this.layers.route = L.geoJSON(geometry, { style: { color: '#1a73e8', weight: 6, opacity: 0.8 } }).addTo(this.map);
+            this.map.fitBounds(this.layers.route.getBounds(), { padding: [50, 50] });
+        }
+
+        clearRoute() {
+            if (this.layers.route) { this.map.removeLayer(this.layers.route); this.layers.route = null; }
+            this.clearMarkers('start'); this.clearMarkers('end');
+            this.locations = { start: null, end: null };
+            this.dom.inputs.start.value = ''; this.dom.inputs.end.value = '';
+            this.dom.routePanel.innerHTML = '<div style="padding:30px; text-align:center;"><p>Select destination.</p></div>';
+        }
+    }
+
+    // --- 3. INIT MAP ---
+    let mapManager = null;
+    const mapTabBtn = document.getElementById('map-tab');
+    
+    mapTabBtn.addEventListener('shown.bs.tab', function (event) {
+        if (!mapManager) {
+            mapManager = new MapManager();
+            mapManager.initMap();
+        } else {
+            setTimeout(() => { mapManager.map.invalidateSize(); }, 100);
+        }
+    });
+
+    mapTabBtn.addEventListener('hidden.bs.tab', function (event) {
+        if (mapManager) {
+            mapManager.setMode('search'); 
+            mapManager.hideResults();
+        }
+    });
+
+    </script>
 {% endblock %}

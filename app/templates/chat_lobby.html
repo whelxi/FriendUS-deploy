@@ -84,14 +84,30 @@
                     </div>
 
                     <div class="mb-4 p-3 bg-light rounded-3 border">
-                        <label class="form-label fw-bold d-block mb-2"><i class="bi bi-shield-lock-fill text-muted"></i> Privacy Setting</label>
-                        <div class="d-flex gap-4">
-                            {% for subfield in form.privacy %}
-                                <div class="form-check form-check-inline">
-                                    {{ subfield(class="form-check-input") }}
-                                    {{ subfield.label(class="form-check-label") }}
+                        <div class="row">
+                            <div class="col-md-6">
+                                <label class="form-label fw-bold d-block mb-2"><i class="bi bi-shield-lock-fill text-muted"></i> Privacy Setting</label>
+                                <div class="d-flex gap-4">
+                                    {% for subfield in form.privacy %}
+                                        <div class="form-check form-check-inline">
+                                            {{ subfield(class="form-check-input") }}
+                                            {{ subfield.label(class="form-check-label") }}
+                                        </div>
+                                    {% endfor %}
                                 </div>
-                            {% endfor %}
+                            </div>
+                            <div class="col-md-6 border-start ps-4">
+                                <label class="form-label fw-bold d-block mb-2"><i class="bi bi-door-open-fill text-muted"></i> Join Method</label>
+                                <div class="form-check form-switch pt-1">
+                                    {# Kiểm tra xem form backend đã có field này chưa, nếu chưa thì render input thường #}
+                                    {% if form.allow_auto_join %}
+                                        {{ form.allow_auto_join(class="form-check-input", role="switch") }}
+                                    {% else %}
+                                        <input class="form-check-input" type="checkbox" role="switch" name="allow_auto_join" id="allow_auto_join" value="y">
+                                    {% endif %}
+                                    <label class="form-check-label" for="allow_auto_join">Allow Instant Join</label>
+                                </div>
+                            </div>
                         </div>
                     </div>
 
@@ -221,6 +237,16 @@
   </div>
 
   <div class="tab-pane fade" id="public-rooms" role="tabpanel">
+      <div class="d-flex justify-content-between align-items-center mb-3 p-3 bg-white rounded-4 shadow-sm border">
+          <div>
+              <h6 class="fw-bold text-dark mb-1"><i class="bi bi-robot"></i> AI Matchmaker</h6>
+              <small class="text-muted">Use our algorithm to find groups matching your interests.</small>
+          </div>
+          <a href="{{ url_for('chat.chat', sort='match') }}" class="btn btn-warning text-dark fw-bold rounded-pill px-4 shadow-sm hover-lift">
+              <i class="bi bi-stars"></i> Find Matching Groups
+          </a>
+      </div>
+
       <div class="d-flex flex-column gap-3">
         {% for room in public_rooms %}
             <div class="card border-0 shadow-sm rounded-4 hover-lift">
@@ -230,6 +256,11 @@
                             <h5 class="mb-0 fw-bold text-dark">{{ room.name }}</h5>
                             {% if room.is_private %}
                                 <i class="bi bi-lock-fill text-muted" title="Private"></i>
+                            {% endif %}
+                            {% if room.allow_auto_join %}
+                                <span class="badge bg-info text-dark rounded-pill border border-info" style="font-size: 0.65rem;">
+                                    <i class="bi bi-lightning-charge-fill"></i> Instant Join
+                                </span>
                             {% endif %}
                         </div>
                         <p class="text-muted small mb-2">{{ room.description or 'No description.' }}</p>
@@ -247,7 +278,11 @@
                         {% else %}
                             <form action="{{ url_for('chat.request_join_room', room_id=room.id) }}" method="POST">
                                 <button type="submit" class="btn btn-success btn-sm rounded-pill px-4 shadow-sm fw-bold">
-                                    <i class="bi bi-person-plus-fill"></i> Join
+                                    {% if room.allow_auto_join %}
+                                        <i class="bi bi-box-arrow-in-right"></i> Join Now
+                                    {% else %}
+                                        <i class="bi bi-person-plus-fill"></i> Request
+                                    {% endif %}
                                 </button>
                             </form>
                         {% endif %}

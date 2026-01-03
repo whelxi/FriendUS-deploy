@@ -20,62 +20,33 @@
     }
 
     /* =========================================
-       2. AI PLANNER SECTION (REDESIGNED)
+       2. AI PLANNER SECTION (NEW DESIGN)
        ========================================= */
     .ai-wrapper {
         background: var(--ai-bg-gradient);
         border: 1px solid rgba(102, 16, 242, 0.1);
-        border-radius: 24px; /* Bo góc lớn hơn */
+        border-radius: 24px;
         padding: 25px;
         box-shadow: 0 10px 30px rgba(102, 16, 242, 0.05);
         position: relative;
         overflow: hidden;
     }
 
-    /* Input dạng Chat Bar */
-    .ai-input-group {
-        background: white;
-        border-radius: 50px;
-        padding: 6px;
-        box-shadow: 0 4px 15px rgba(0,0,0,0.05);
-        border: 1px solid #e9ecef;
-        display: flex;
-        align-items: center;
-        transition: all 0.3s ease;
+    /* Controls Styling */
+    .form-control-sm, .form-select-sm, .btn-sm {
+        font-size: 0.9rem;
+        padding: 8px 12px;
     }
 
-    .ai-input-group:focus-within {
-        border-color: var(--ai-primary);
-        box-shadow: 0 4px 20px rgba(102, 16, 242, 0.15);
-        transform: translateY(-2px);
-    }
-
-    .ai-input {
-        border: none;
-        outline: none;
-        box-shadow: none;
-        background: transparent;
-        padding-left: 15px;
-        font-size: 0.95rem;
-        flex-grow: 1;
-    }
-
-    .btn-ai-send {
-        width: 40px;
-        height: 40px;
-        border-radius: 50%;
-        background: var(--ai-primary);
+    .btn-check:checked + .btn-outline-secondary {
+        background-color: var(--ai-primary);
         color: white;
-        border: none;
-        display: flex;
-        align-items: center;
-        justify-content: center;
-        transition: transform 0.2s;
+        border-color: var(--ai-primary);
     }
 
-    .btn-ai-send:hover {
-        transform: scale(1.1);
-        background: #520dc2;
+    .btn-ai-send-large:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 4px 15px rgba(102, 16, 242, 0.3) !important;
     }
 
     /* Kết quả gợi ý (Cards) */
@@ -88,7 +59,7 @@
         box-shadow: 0 2px 8px rgba(0,0,0,0.02);
         transition: all 0.2s ease;
         position: relative;
-        padding-left: 50px; /* Chừa chỗ cho Icon */
+        padding-left: 50px;
     }
 
     .suggestion-card:hover {
@@ -112,90 +83,19 @@
         font-size: 1.1rem;
     }
 
-    .match-score {
-        font-size: 0.75rem;
-        font-weight: 700;
-        padding: 4px 10px;
-        border-radius: 20px;
-        display: inline-block;
-    }
-    .score-high { background: #d1e7dd; color: #0f5132; }
-    .score-med { background: #fff3cd; color: #664d03; }
-
     /* =========================================
-       3. TIMELINE SECTION (PREVIOUS DESIGN)
+       3. TIMELINE SECTION
        ========================================= */
-    .timeline-container {
-        position: relative;
-        padding: 20px 0;
-    }
-
-    .timeline-line {
-        position: absolute;
-        top: 0;
-        bottom: 0;
-        left: var(--timeline-width);
-        width: 2px;
-        background: #e9ecef;
-        z-index: 0;
-    }
-
-    .timeline-item {
-        position: relative;
-        margin-bottom: 35px;
-        z-index: 1;
-    }
-
-    .timeline-time {
-        position: absolute;
-        left: 0;
-        width: 80px;
-        text-align: right;
-        padding-right: 15px;
-        top: 0;
-        display: flex;
-        flex-direction: column;
-        align-items: flex-end;
-    }
-
+    .timeline-container { position: relative; padding: 20px 0; }
+    .timeline-line { position: absolute; top: 0; bottom: 0; left: var(--timeline-width); width: 2px; background: #e9ecef; z-index: 0; }
+    .timeline-item { position: relative; margin-bottom: 35px; z-index: 1; }
+    .timeline-time { position: absolute; left: 0; width: 80px; text-align: right; padding-right: 15px; top: 0; display: flex; flex-direction: column; align-items: flex-end; }
     .time-hour { font-size: 1.1rem; font-weight: 800; color: var(--primary-color); line-height: 1; }
     .time-date { font-size: 0.75rem; color: #adb5bd; font-weight: 600; margin-top: 4px; text-transform: uppercase; }
-
-    .timeline-dot {
-        position: absolute;
-        left: calc(var(--timeline-width) - (var(--dot-size) / 2) + 1px);
-        width: var(--dot-size);
-        height: var(--dot-size);
-        border-radius: 50%;
-        background: #fff;
-        border: 3px solid var(--primary-color);
-        box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1);
-        transition: all 0.3s ease;
-    }
-
-    .timeline-item:hover .timeline-dot {
-        background: var(--primary-color);
-        box-shadow: 0 0 0 5px rgba(13, 110, 253, 0.2);
-    }
-
-    .timeline-card {
-        margin-left: var(--spacing-left);
-        background: #fff;
-        border-radius: 16px;
-        padding: 20px;
-        border: 1px solid rgba(0,0,0,0.03);
-        box-shadow: 0 4px 20px rgba(0,0,0,0.05);
-        transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1);
-        cursor: pointer;
-        position: relative;
-        overflow: hidden;
-    }
-
-    .timeline-card::before {
-        content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px;
-        background: var(--primary-color); opacity: 0; transition: opacity 0.3s;
-    }
-
+    .timeline-dot { position: absolute; left: calc(var(--timeline-width) - (var(--dot-size) / 2) + 1px); width: var(--dot-size); height: var(--dot-size); border-radius: 50%; background: #fff; border: 3px solid var(--primary-color); box-shadow: 0 0 0 3px rgba(13, 110, 253, 0.1); transition: all 0.3s ease; }
+    .timeline-item:hover .timeline-dot { background: var(--primary-color); box-shadow: 0 0 0 5px rgba(13, 110, 253, 0.2); }
+    .timeline-card { margin-left: var(--spacing-left); background: #fff; border-radius: 16px; padding: 20px; border: 1px solid rgba(0,0,0,0.03); box-shadow: 0 4px 20px rgba(0,0,0,0.05); transition: all 0.3s cubic-bezier(0.165, 0.84, 0.44, 1); cursor: pointer; position: relative; overflow: hidden; }
+    .timeline-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 4px; background: var(--primary-color); opacity: 0; transition: opacity 0.3s; }
     .timeline-card:hover { transform: translateY(-4px); box-shadow: 0 10px 30px rgba(0,0,0,0.1); }
     .timeline-card:hover::before { opacity: 1; }
 </style>
@@ -230,39 +130,89 @@
     <div class="row g-4">
         <div class="col-lg-4">
             <div class="ai-wrapper sticky-top" style="top: 20px; z-index: 10;">
-                <div class="d-flex align-items-center mb-3">
-                    <div class="bg-white p-2 rounded-circle shadow-sm me-2 text-center" style="width: 40px; height: 40px;">
-                        <i class="bi bi-stars" style="color: #6610f2; font-size: 1.2rem;"></i>
+                <div class="d-flex align-items-center mb-4 border-bottom pb-3">
+                    <div class="bg-white p-2 rounded-circle shadow-sm me-3 text-center" style="width: 48px; height: 48px; display: grid; place-items: center;">
+                        <i class="bi bi-stars" style="color: #6610f2; font-size: 1.5rem;"></i>
                     </div>
                     <div>
-                        <h5 class="fw-bold m-0" style="color: #4a09b3;">AI Assistant</h5>
-                        <small class="text-muted" style="font-size: 0.75rem;">Powered by FriendUS Intelligence</small>
+                        <h5 class="fw-bold m-0" style="color: #4a09b3;">AI Planner</h5>
+                        <small class="text-muted">Thiết kế chuyến đi với SeaLion</small>
                     </div>
                 </div>
 
-                <p class="small text-secondary mb-3">Bạn muốn đi đâu hôm nay? Nhập ý tưởng, AI sẽ lên lịch trình giúp bạn.</p>
-                
-                <div class="ai-input-group mb-4">
-                    <input type="text" id="wishInput" class="form-control ai-input" 
-                           placeholder="VD: Ăn sáng quận 1, rồi đi cafe...">
-                    <button class="btn-ai-send shadow-sm" type="button" id="btnGeneratePlan">
-                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none"></span>
-                        <i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>
+                <div id="aiInputForm">
+                    <label class="small fw-bold text-secondary mb-1"><i class="bi bi-calendar-event me-1"></i> Thời gian</label>
+                    <div class="row g-2 mb-3">
+                        <div class="col-5">
+                            <input type="date" id="planDate" class="form-control form-control-sm rounded-3 border-0 shadow-sm">
+                        </div>
+                        <div class="col-3">
+                            <input type="time" id="startTime" class="form-control form-control-sm rounded-3 border-0 shadow-sm" value="09:00">
+                        </div>
+                        <div class="col-1 text-center align-self-center text-muted">-</div>
+                        <div class="col-3">
+                            <input type="time" id="endTime" class="form-control form-control-sm rounded-3 border-0 shadow-sm" value="17:00">
+                        </div>
+                    </div>
+
+                    <div class="row g-2 mb-3">
+                        <div class="col-6">
+                            <label class="small fw-bold text-secondary mb-1"><i class="bi bi-geo-alt me-1"></i> Khu vực</label>
+                            <input type="text" id="locationInput" class="form-control form-control-sm rounded-3 border-0 shadow-sm" 
+                                   placeholder="Quận 1, TP.HCM..." value="TP. Hồ Chí Minh">
+                        </div>
+                        <div class="col-6">
+                            <label class="small fw-bold text-secondary mb-1"><i class="bi bi-people me-1"></i> Đi cùng</label>
+                            <select id="companionSelect" class="form-select form-select-sm rounded-3 border-0 shadow-sm">
+                                <option value="Một mình">👤 Một mình</option>
+                                <option value="Hẹn hò">❤️ Hẹn hò</option>
+                                <option value="Nhóm bạn" selected>👯 Nhóm bạn</option>
+                                <option value="Gia đình">👨‍👩‍👧‍👦 Gia đình</option>
+                            </select>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold text-secondary mb-1"><i class="bi bi-wallet2 me-1"></i> Ngân sách</label>
+                        <div class="btn-group w-100" role="group" id="budgetGroup">
+                            <input type="radio" class="btn-check" name="budget" id="budget1" value="Tiết kiệm">
+                            <label class="btn btn-sm btn-outline-secondary rounded-start-pill" for="budget1">💸 Tiết kiệm</label>
+
+                            <input type="radio" class="btn-check" name="budget" id="budget2" value="Vừa phải" checked>
+                            <label class="btn btn-sm btn-outline-secondary" for="budget2">⚖️ Vừa phải</label>
+
+                            <input type="radio" class="btn-check" name="budget" id="budget3" value="Sang chảnh">
+                            <label class="btn btn-sm btn-outline-secondary rounded-end-pill" for="budget3">💎 Sang chảnh</label>
+                        </div>
+                    </div>
+
+                    <div class="mb-3">
+                        <label class="small fw-bold text-secondary mb-1"><i class="bi bi-chat-quote me-1"></i> Mong muốn chi tiết</label>
+                        <textarea id="wishInput" class="form-control rounded-3 border-0 shadow-sm" rows="3" 
+                                  placeholder="VD: Muốn tìm quán cafe yên tĩnh làm việc, sau đó đi ăn món gì đó healthy..."></textarea>
+                    </div>
+
+                    <button class="btn w-100 rounded-pill fw-bold text-white shadow-sm btn-ai-send-large" 
+                            type="button" id="btnGeneratePlan"
+                            style="background: linear-gradient(45deg, #6610f2, #8540f5); padding: 10px; transition: all 0.2s;">
+                        <span id="btnSpinner" class="spinner-border spinner-border-sm d-none me-2"></span>
+                        <i class="bi bi-magic me-2"></i> Lập Kế Hoạch AI
                     </button>
                 </div>
                 
-                <div id="aiResultArea" class="d-none animate__animated animate__fadeIn">
+                <div id="aiResultArea" class="d-none mt-4 pt-3 border-top animate__animated animate__fadeIn">
                     <div class="d-flex justify-content-between align-items-center mb-3">
-                        <span class="text-uppercase fw-bold text-secondary small" style="font-size: 0.7rem; letter-spacing: 1px;">Gợi ý phù hợp nhất</span>
-                        </div>
+                        <span class="text-uppercase fw-bold text-secondary small" style="letter-spacing: 1px;">Đề xuất cho bạn</span>
+                        <button class="btn btn-sm btn-light text-muted" onclick="resetAI()"><i class="bi bi-arrow-counterclockwise"></i></button>
+                    </div>
 
-                    <div id="proposedTimeline" class="mb-3" style="max-height: 400px; overflow-y: auto; padding-right: 4px;">
+                    <div id="proposedTimeline" class="mb-3" style="max-height: 400px; overflow-y: auto;">
                         </div>
 
                     <button class="btn w-100 rounded-pill fw-bold text-white shadow-sm" 
                             id="btnSaveToDb"
-                            style="background: linear-gradient(90deg, #198754 0%, #20c997 100%); border: none; padding: 10px;">
-                        <i class="bi bi-check-circle-fill me-2"></i> Áp dụng Lịch trình này
+                            style="background: #198754; border: none; padding: 10px;">
+                        <i class="bi bi-check-circle-fill me-2"></i> Chốt lịch trình này
                     </button>
                 </div>
             </div>
@@ -472,62 +422,94 @@
 
         const btnGen = document.getElementById('btnGeneratePlan');
         const input = document.getElementById('wishInput');
-        const spinner = document.getElementById('btnSpinner');
-        const sendIcon = btnGen ? btnGen.querySelector('.bi-send-fill') : null;
         const resultArea = document.getElementById('aiResultArea');
         const timelineList = document.getElementById('proposedTimeline');
-        // Đã xóa const scoreBadge = ...
         const btnSave = document.getElementById('btnSaveToDb');
+
+        // 1. Set default date
+        if(document.getElementById('planDate')) {
+            document.getElementById('planDate').valueAsDate = new Date();
+        }
 
         if(btnGen) {
             btnGen.addEventListener('click', function() {
+                // Thu thập tất cả dữ liệu
                 const wish = input.value.trim();
-                if (!wish) return; // Silent if empty to not annoy
-
-                btnGen.disabled = true;
-                if(sendIcon) sendIcon.classList.add('d-none');
-                spinner.classList.remove('d-none');
+                const date = document.getElementById('planDate').value;
+                const startTime = document.getElementById('startTime').value;
+                const endTime = document.getElementById('endTime').value;
+                const locationVal = document.getElementById('locationInput').value;
+                const companions = document.getElementById('companionSelect').value;
                 
-                // Ẩn kết quả cũ để tạo cảm giác "đang suy nghĩ"
+                const budgetEl = document.querySelector('input[name="budget"]:checked');
+                const budget = budgetEl ? budgetEl.value : 'Vừa phải';
+
+                // Validation nhẹ
+                if (!wish && !locationVal) {
+                    input.focus();
+                    alert("Bạn hãy nhập mong muốn hoặc địa điểm để AI gợi ý nhé!");
+                    return; 
+                }
+
+                // UI Loading
+                btnGen.disabled = true;
+                btnGen.innerHTML = '<span class="spinner-border spinner-border-sm me-2"></span> SeaLion đang tìm kiếm...';
+                document.getElementById('aiInputForm').style.opacity = '0.6';
+                document.getElementById('aiInputForm').style.pointerEvents = 'none';
+
                 resultArea.classList.add('d-none');
                 timelineList.innerHTML = '';
 
+                // Gửi Request
                 socket.emit('request_ai_plan', {
                     room_id: roomId,
                     message: wish,
-                    lat: 10.762622, lon: 106.660172
+                    lat: 10.762622, // Tạm thời hardcode Center HCM
+                    lon: 106.660172,
+                    preferences: {
+                        date: date,
+                        time_range: `${startTime} - ${endTime}`,
+                        location: locationVal,
+                        budget: budget,
+                        companions: companions
+                    }
                 });
-            });
-            
-            // Allow Enter key
-            input.addEventListener('keypress', function(e) {
-                if (e.key === 'Enter') btnGen.click();
             });
         }
 
+        // Reset UI
+        window.resetAI = function() {
+            resultArea.classList.add('d-none');
+            document.getElementById('aiInputForm').style.opacity = '1';
+            document.getElementById('aiInputForm').style.pointerEvents = 'auto';
+            
+            btnGen.disabled = false;
+            btnGen.innerHTML = '<i class="bi bi-magic me-2"></i> Lập Kế Hoạch AI';
+            input.focus();
+        }
+
+        // Handle AI Response
         socket.on('plan_generated', function(response) {
             btnGen.disabled = false;
-            if(sendIcon) sendIcon.classList.remove('d-none');
-            spinner.classList.add('d-none');
+            btnGen.innerHTML = '<i class="bi bi-magic me-2"></i> Lập Kế Hoạch AI';
+            document.getElementById('aiInputForm').style.opacity = '1';
+            document.getElementById('aiInputForm').style.pointerEvents = 'auto';
 
             if (response.status === 'success') {
                 resultArea.classList.remove('d-none');
                 currentPlanSteps = response.data.steps;
                 
-                // Đã xóa logic hiển thị Score ở đây
-
                 let html = '';
                 if(!currentPlanSteps || currentPlanSteps.length === 0) {
                     html = `
                         <div class="text-center py-4 text-muted">
                             <i class="bi bi-emoji-frown fs-4"></i>
-                            <p class="small mt-2">Hmm, mình chưa tìm thấy chỗ nào hợp lý. Thử lại nhé?</p>
+                            <p class="small mt-2">AI không tìm thấy lộ trình phù hợp. Thử thay đổi yêu cầu xem sao?</p>
                         </div>`;
                     btnSave.disabled = true;
                 } else {
                     btnSave.disabled = false;
                     currentPlanSteps.forEach(step => {
-                        // Tạo Card gợi ý mới
                         html += `
                             <div class="suggestion-card">
                                 <div class="suggestion-icon">
@@ -536,7 +518,7 @@
                                 <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${step.place.name}</h6>
                                 <div class="small text-muted text-truncate mb-2">${step.place.address}</div>
                                 <div class="d-flex align-items-center justify-content-between">
-                                    <span class="badge bg-light text-dark border fw-normal">${step.time.start}</span>
+                                    <span class="badge bg-light text-dark border fw-normal">${step.time.start} - ${step.time.end}</span>
                                     <small class="text-primary fst-italic" style="font-size: 0.75rem;">
                                         <i class="bi bi-lightbulb"></i> ${step.intent}
                                     </small>
@@ -549,18 +531,25 @@
             }
         });
 
+        // Save Plan
         if(btnSave) {
             btnSave.addEventListener('click', function() {
                 if(currentPlanSteps.length === 0) return;
-                const originalText = btnSave.innerHTML;
+                
+                // [FIX] Lấy ngày người dùng đã chọn trong ô input
+                const dateInput = document.getElementById('planDate');
+                const selectedDate = dateInput ? dateInput.value : null;
+
+                console.log("Saving plan for date:", selectedDate); // Debug check
+
+                btnSave.disabled = true;
+                btnSave.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
                 
                 socket.emit('save_ai_plan', {
                     room_id: roomId,
-                    plan_steps: currentPlanSteps
+                    plan_steps: currentPlanSteps,
+                    plan_date: selectedDate // <--- Gửi thêm trường này
                 });
-                
-                btnSave.disabled = true;
-                btnSave.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
             });
         }
 
@@ -569,9 +558,10 @@
         });
 
         socket.on('plan_error', function(data) {
-            if(btnGen) btnGen.disabled = false;
-            if(sendIcon) sendIcon.classList.remove('d-none');
-            if(spinner) spinner.classList.add('d-none');
+            btnGen.disabled = false;
+            btnGen.innerHTML = '<i class="bi bi-magic me-2"></i> Lập Kế Hoạch AI';
+            document.getElementById('aiInputForm').style.opacity = '1';
+            document.getElementById('aiInputForm').style.pointerEvents = 'auto';
             alert('Lỗi: ' + data.message);
         });
     });

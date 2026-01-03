@@ -1,6 +1,7 @@
 FRIENDUS
 ├── app
 │   ├── __pycache__
+|   ├── bartpho-teencode-lora
 │   ├── blueprints
 │   │   ├── __pycache__
 │   │   ├── auth.py
@@ -56,3 +57,6 @@ FRIENDUS
 
 Đây là project tree của tôi cho hỏi bạn cần files nào?
 tôi cần bạn chỉ ra đoạn code tôi cần tô đen và thay đoạn code đó (bằng nút find and replace trong vscode)
+
+
+hoặc Bạn có thể thêm chi tiết cài đặt của bạn và paste nó vào đây không? Lưu ý: với phần code đã chạy rồi không đụng tới nó.

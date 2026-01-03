@@ -23,6 +23,12 @@ Pillow
 Markdown
 bleach
 PyYAML>=6.0
+huggingface_hub
+torch
+transformers
+peft
+sentencepiece
+faker
 
 # ---- Google Generative AI ----
 google-generativeai

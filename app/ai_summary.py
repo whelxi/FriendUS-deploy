@@ -108,9 +108,9 @@ YÊU CẦU JSON:
         result = self._call_model(chat_content, sys_prompt)
         return result
 
-    # --- BƯỚC 4: TỔNG HỢP ---
+    # --- BƯỚC 4: TỔNG HỢP (PAPER VERSION - DEEP) ---
     def process(self, raw_chat: List[Dict]):
-        # Pipeline xử lý
+        # Pipeline xử lý: Normalize -> Coref -> Topic -> Summarize
         chat_norm = self.normalize_text(raw_chat)
         chat_coref = self.coreference_resolution(chat_norm)
         topics_json = self.dynamic_topic_segmentation(chat_coref)
@@ -127,3 +127,14 @@ CẤU TRÚC BÁO CÁO:
         
         final_summary = self._call_model(f"Dữ liệu:\n{topics_json}", sys_prompt)
         return final_summary
+
+    # --- NORMAL VERSION (FAST SUMMARY) ---
+    def simple_process(self, raw_chat: List[Dict]) -> str:
+        # Chỉ tóm tắt trực tiếp dựa trên nội dung thô, bỏ qua các bước xử lý ngôn ngữ phức tạp
+        chat_str = "\n".join([f"{msg['speaker']}: {msg['text']}" for msg in raw_chat])
+        sys_prompt = """
+Bạn là trợ lý ảo tổng hợp tin nhắn nhóm.
+Nhiệm vụ: Đọc đoạn hội thoại và tóm tắt lại 3 ý chính quan trọng nhất một cách ngắn gọn, súc tích.
+Không cần phân tích sâu, chỉ cần nắm bắt thông tin bề mặt nhanh chóng."""
+        
+        return self._call_model(f"Hội thoại:\n{chat_str}", sys_prompt)

@@ -184,6 +184,11 @@ def profile(username):
     
     form = UpdateAccountForm()
     
+    # [FIX QUAN TRỌNG] Import và gán lại choices cho form.
+    # Điều này bắt buộc để SelectMultipleField hoạt động đúng khi submit POST.
+    from app.utils import TAG_CHOICES
+    form.interests.choices = TAG_CHOICES
+
     if user == current_user:
         if form.validate_on_submit():
             if form.picture.data:
@@ -191,17 +196,12 @@ def profile(username):
                 current_user.image_file = picture_file
             
             current_user.username = form.username.data
-            
-            # [NEW] Lưu Bio (Bạn cần thêm field bio vào UpdateAccountForm trong forms.py nhé)
-            # Vì bạn không gửi file forms.py, tôi giả định bạn sẽ thêm field bio vào đó.
-            # Nếu form chưa có field bio, dòng dưới sẽ bị lỗi. Hãy kiểm tra forms.py.
-            if hasattr(form, 'bio'): 
-                current_user.bio = form.bio.data
+            current_user.bio = form.bio.data  # Cập nhật Bio
 
+            # Cập nhật Interests
+            # validate_interests trong forms.py đã đảm bảo data không rỗng
             if form.interests.data:
                 current_user.interests = ','.join(form.interests.data)
-            else:
-                current_user.interests = ''
             
             db.session.commit()
             flash('Your account has been updated!', 'success')
@@ -210,10 +210,7 @@ def profile(username):
         elif request.method == 'GET':
             form.username.data = current_user.username
             form.email.data = current_user.email
-            # [NEW] Load Bio hiện tại
-            if hasattr(form, 'bio'):
-                form.bio.data = current_user.bio
-                
+            form.bio.data = current_user.bio
             if current_user.interests:
                 form.interests.data = current_user.interests.split(',')
 

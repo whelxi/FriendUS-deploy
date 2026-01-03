@@ -1,6 +1,7 @@
 from datetime import datetime
 from app.extensions import db
 
+# Bảng phụ (Association Table) cho quan hệ Many-to-Many giữa User và Room
 room_members = db.Table('room_members',
     db.Column('user_id', db.Integer, db.ForeignKey('user.id'), primary_key=True),
     db.Column('room_id', db.Integer, db.ForeignKey('room.id'), primary_key=True)
@@ -11,10 +12,14 @@ class Room(db.Model):
     name = db.Column(db.String(50), unique=True, nullable=False)
     description = db.Column(db.String(200), nullable=True)
     is_private = db.Column(db.Boolean, default=False)
+    allow_auto_join = db.Column(db.Boolean, default=False) # True: Vào luôn, False: Cần duyệt
     tags = db.Column(db.String(200), default='') 
     summary = db.Column(db.Text, nullable=True)
 
+    # ForeignKey trỏ đến bảng 'user'
     creator_id = db.Column(db.Integer, db.ForeignKey('user.id'))
+    
+    # Quan hệ với User (dùng chuỗi 'User' thay vì import class để tránh lỗi vòng lặp)
     creator = db.relationship('User', back_populates='created_rooms')
     
     members = db.relationship('User', secondary=room_members,
@@ -30,8 +35,10 @@ class Message(db.Model):
     room = db.Column(db.String(50), nullable=False) 
     user_id = db.Column(db.Integer, db.ForeignKey('user.id'), nullable=False)
 
+    # Lưu ý: Relationship 'author' nên được định nghĩa ở User model (dùng backref) 
+    # để tránh phải sửa file này.
+    
     def __repr__(self):
-        # Lưu ý: self.author được backref từ User trong user.py
         return f"Message('{self.body}', User ID: {self.user_id})"
 
 class RoomRequest(db.Model):
@@ -42,6 +49,7 @@ class RoomRequest(db.Model):
     status = db.Column(db.String(20), nullable=False, default='pending_owner') 
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
 
+    # Các Relationship dùng chuỗi 'Room' và 'User'
     room = db.relationship('Room', backref='requests')
     user = db.relationship('User', foreign_keys=[user_id], backref='room_requests')
     inviter = db.relationship('User', foreign_keys=[inviter_id], backref='sent_room_invites')

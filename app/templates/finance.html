@@ -1,6 +1,13 @@
 {% extends "layout.html" %}
 {% block content %}
 
+{% if hide_nav %}
+<style>
+    body { background-color: #fff; overflow-y: auto; }
+    .container { margin-top: 0 !important; padding-top: 10px; }
+</style>
+{% endif %}
+
 <div class="container py-4">
     <h2><i class="bi bi-cash-coin"></i> Financial Allocation Map</h2>
     
@@ -9,7 +16,7 @@
             <div class="card mb-4 shadow-sm">
                 <div class="card-header bg-primary text-white">Create Transaction</div>
                 <div class="card-body">
-                    <form method="POST">
+                    <form method="POST" action="{{ url_for('finance.add_room_transaction', room_id=room.id, hide_nav=1 if hide_nav else 0) }}">
                         {{ form.hidden_tag() }}
                         
                         <div class="mb-3">
@@ -60,7 +67,7 @@
                                 <span class="fw-bold">{{ "{:,.0f}".format(p.amount) }}</span>
                                 <br><small class="text-muted">{{ p.description }}</small>
                             </div>
-                            <form action="{{ url_for('confirm_transaction', trans_id=p.id) }}" method="POST">
+                            <form action="{{ url_for('finance.confirm_transaction', trans_id=p.id, hide_nav=1 if hide_nav else 0) }}" method="POST">
                                 <button type="submit" class="btn btn-sm btn-outline-success">Confirm</button>
                             </form>
                         </div>
@@ -102,7 +109,7 @@
                                     {{ h.status }}
                                 </span>
                                 {% if h.sender_id == current_user.id and h.status == 'pending' %}
-                                    <form action="{{ url_for('delete_transaction', trans_id=h.id) }}" method="POST" class="mt-1">
+                                    <form action="{{ url_for('finance.delete_transaction', trans_id=h.id, hide_nav=1 if hide_nav else 0) }}" method="POST" class="mt-1">
                                         <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 10px;">Cancel</button>
                                     </form>
                                 {% endif %}
@@ -135,7 +142,8 @@
 <script>
 
     function loadGraph() {
-        fetch('/api/finance_graph')
+        // [FIX] Đã thêm 'finance.' vào url_for API graph
+        fetch("{{ url_for('finance.api_finance_graph', room_id=room.id) }}")
             .then(response => response.json())
             .then(data => {
                 var nodes = new vis.DataSet(data.nodes);
@@ -144,7 +152,7 @@
                     to: e.to, 
                     label: e.label, 
                     arrows: 'to',
-                    color: {color: '#dc3545'}, // Màu đỏ thể hiện nợ
+                    color: {color: '#dc3545'},
                     width: 2
                 })));
 

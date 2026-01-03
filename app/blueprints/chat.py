@@ -1,16 +1,119 @@
-from flask import Blueprint, render_template, redirect, url_for, flash, request
+from flask import Blueprint, render_template, redirect, url_for, flash, request, current_app, jsonify
 from flask_login import current_user, login_required
 from app.extensions import db, socketio
 from app.models import Room, Message, Activity, Constraint, Transaction, User, RoomRequest 
 from app.forms import CreateRoomForm, ActivityForm, ConstraintForm, TransactionForm
 from app.utils import auto_update_user_interest, score_from_matrix_personalized, check_conflicts, UserTagScore
-from app.ai_summary import SeaLionDialogueSystem # Import class mới
+from app.ai_summary import SeaLionDialogueSystem 
+import requests
+import os
+import torch
+from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
+# [FIX] Cần import PeftModel để chạy Adapter
+from peft import PeftModel 
 
 chat_bp = Blueprint('chat', __name__)
+
+# --- CẤU HÌNH MODEL ---
+# Sử dụng cấu hình giống test.py đã chạy thành công
+BASE_MODEL_ID = "vinai/bartpho-syllable"
+ADAPTER_MODEL_ID = "whelxi/bartpho-teencode" 
+
+# Biến global cache
+local_tokenizer = None
+local_model = None
+
+def get_model_and_tokenizer():
+    """
+    Load model chuẩn theo quy trình Peft/LoRA:
+    1. Load Tokenizer
+    2. Load Base Model (BartPho)
+    3. Load Peft Adapter (Teencode)
+    """
+    global local_tokenizer, local_model
+    
+    if local_model is None:
+        print("🔄 Đang khởi tạo model dịch Teencode (Local)...")
+        device = "cuda" if torch.cuda.is_available() else "cpu"
+        
+        try:
+            # 1. Load Tokenizer (Lấy từ adapter path vẫn ok, hoặc lấy từ base đều được)
+            print(f"⏳ Loading Tokenizer từ {ADAPTER_MODEL_ID}...")
+            local_tokenizer = AutoTokenizer.from_pretrained(ADAPTER_MODEL_ID)
+            
+            # 2. Load Base Model (Bắt buộc phải có cái này trước)
+            print(f"⏳ Loading Base Model từ {BASE_MODEL_ID}...")
+            base_model = AutoModelForSeq2SeqLM.from_pretrained(
+                BASE_MODEL_ID,
+                torch_dtype=torch.float16 if device == "cuda" else torch.float32
+            )
+            
+            # 3. Gắn Adapter vào Base Model
+            print(f"🔗 Đang gắn LoRA Adapter từ {ADAPTER_MODEL_ID}...")
+            local_model = PeftModel.from_pretrained(base_model, ADAPTER_MODEL_ID)
+            
+            # 4. Chuyển sang thiết bị (GPU/CPU)
+            local_model.to(device)
+            local_model.eval() # Chuyển sang chế độ eval
+            
+            print(f"✅ Load model thành công trên thiết bị: {device}")
+            
+        except Exception as e:
+            print(f"❌ Lỗi load model local: {e}")
+            return None, None
+            
+    return local_tokenizer, local_model
+
+@chat_bp.route('/api/suggest-text', methods=['POST'])
+def suggest_text():
+    data = request.json
+    input_text = data.get('text', '')
+    
+    if not input_text:
+        return jsonify({'suggestion': ''})
+
+    # Lấy model đã load
+    tokenizer, model = get_model_and_tokenizer()
+    
+    if not model or not tokenizer:
+        return jsonify({'suggestion': 'Lỗi: Không load được model'})
+
+    try:
+        device = model.device
+        
+        # 1. Chuẩn bị input (giống hàm normalize_teencode trong test.py)
+        inputs = tokenizer(
+            input_text, 
+            return_tensors="pt", 
+            max_length=128, 
+            truncation=True,
+            padding="max_length" # Thêm padding giống test.py để ổn định
+        ).to(device)
+        
+        # 2. Generate (Sinh văn bản)
+        with torch.no_grad():
+            outputs = model.generate(
+                input_ids=inputs["input_ids"],
+                attention_mask=inputs["attention_mask"],
+                max_length=128,
+                num_beams=4,           
+                early_stopping=True,
+                length_penalty=1.0 
+            )
+        
+        # 3. Decode kết quả
+        suggestion = tokenizer.decode(outputs[0], skip_special_tokens=True)
+        
+        return jsonify({'suggestion': suggestion})
+
+    except Exception as e:
+        print(f"Local Inference Error: {e}")
+        return jsonify({'suggestion': ''})
 
 @chat_bp.route('/chat/summary/<int:room_id>', methods=['GET'])
 @login_required
 def get_chat_summary(room_id):
+    mode = request.args.get('mode', 'normal') # Mặc định là normal
     room = Room.query.get_or_404(room_id)
     
     # Check quyền truy cập (nếu private)
@@ -22,29 +125,31 @@ def get_chat_summary(room_id):
                             .order_by(Message.timestamp.desc())\
                             .limit(40).all()
     
-    # Đảo ngược lại để đúng thứ tự thời gian (Cũ -> Mới) cho AI đọc
     messages.reverse()
     
     if not messages:
         return {"short": "Chưa có tin nhắn", "full": "Chưa có nội dung để tóm tắt"}
 
-    # [CẬP NHẬT CHO SEALION] Chuyển đổi format sang List[Dict]
-    # SeaLion cần định dạng: [{"speaker": "Ten", "text": "Noi dung"}]
     chat_history = [{"speaker": msg.author.username, "text": msg.body} for msg in messages]
 
-    # Gọi SeaLion System
     try:
         sealion = SeaLionDialogueSystem()
-        final_report = sealion.process(chat_history)
         
-        # Vì SeaLion trả về một báo cáo dài (Report), ta dùng nó cho phần full.
-        # Phần short ta có thể để một câu dẫn nhập thân thiện.
+        if mode == 'paper':
+            # Paper Version: Deep Processing (Normalize -> Coref -> Topic)
+            final_report = sealion.process(chat_history)
+            short_msg = "🦁 SeaLion (Paper Mode) đã phân tích sâu hội thoại!"
+        else:
+            # Normal Version: Fast Summarization
+            final_report = sealion.simple_process(chat_history)
+            short_msg = "⚡ AI Recap (Fast Mode) đã tóm tắt nhanh!"
+
         return {
-            "short": "🦁 SeaLion đã tổng hợp xong tin nhắn của nhóm!",
+            "short": short_msg,
             "full": final_report
         }
     except Exception as e:
-        print(f"SeaLion Error: {e}")
+        print(f"AI Error: {e}")
         return {"short": "Lỗi AI", "full": "Hệ thống đang bận, vui lòng thử lại sau."}
 
 @chat_bp.route('/chat', methods=['GET', 'POST'])
@@ -54,7 +159,16 @@ def chat():
     if form.validate_on_submit():
         is_private_bool = True if form.privacy.data == 'private' else False
         tags_str = ",".join(form.tags.data) if form.tags.data else ""
-        new_room = Room(name=form.name.data, description=form.description.data, is_private=is_private_bool, tags=tags_str, creator=current_user)
+        
+        # [NEW] Thêm tham số allow_auto_join lấy từ form
+        new_room = Room(
+            name=form.name.data, 
+            description=form.description.data, 
+            is_private=is_private_bool, 
+            allow_auto_join=form.allow_auto_join.data, # <--- Dòng mới
+            tags=tags_str, 
+            creator=current_user
+        )
         new_room.members.append(current_user)
         db.session.add(new_room)
         db.session.commit()
@@ -67,16 +181,24 @@ def chat():
     # [TỐI ƯU] Lấy sở thích user 1 lần duy nhất
     current_user_scores = UserTagScore.query.filter_by(user_id=current_user.id).all()
 
-    ranked_rooms = []
-    for room in raw_public_rooms:
-        room_tags = room.tags.split(',') if room.tags else []
-        # Truyền list sở thích vào đây
-        score = score_from_matrix_personalized(current_user.id, room_tags, user_scores_cache=current_user_scores)
-        ranked_rooms.append((room, score))
-    
-    # Sort giảm dần theo điểm
-    ranked_rooms.sort(key=lambda x: x[1], reverse=True)
-    public_rooms = [x[0] for x in ranked_rooms] # Lấy danh sách room đã sort
+    # [DEMO ALGORITHM] Chỉ chạy thuật toán khi bấm nút tìm kiếm
+    import random
+    if request.args.get('sort') == 'match':
+        ranked_rooms = []
+        for room in raw_public_rooms:
+            room_tags = room.tags.split(',') if room.tags else []
+            # Truyền list sở thích vào đây
+            score = score_from_matrix_personalized(current_user.id, room_tags, user_scores_cache=current_user_scores)
+            ranked_rooms.append((room, score))
+        
+        # Sort giảm dần theo điểm (Matching)
+        ranked_rooms.sort(key=lambda x: x[1], reverse=True)
+        public_rooms = [x[0] for x in ranked_rooms] 
+        flash('✨ Algorithm activated! Rooms sorted by compatibility.', 'success')
+    else:
+        # Mặc định: Trộn ngẫu nhiên (Linh tinh) để chứng minh chưa sort
+        public_rooms = raw_public_rooms
+        random.shuffle(public_rooms)
     
     # Check các phòng đang chờ owner duyệt (để hiện status Pending)
     my_requests = RoomRequest.query.filter_by(user_id=current_user.id).all()
@@ -160,7 +282,11 @@ def chat_room(room_name):
     if current_user.id == room.creator_id:
         pending_requests = RoomRequest.query.filter_by(room_id=room.id, status='pending_owner').all()
     
+    # [FIX] Lấy lịch sử tin nhắn để hiển thị
+    messages = Message.query.filter_by(room=room.name).order_by(Message.timestamp.asc()).all()
+
     return render_template('chat_room.html', title=f'Trip: {room.name}', room=room,
+                           messages=messages, # <--- QUAN TRỌNG: Truyền messages sang HTML
                            act_form=act_form, cons_form=cons_form, activities=activities, timeline_data=timeline_data,
                            constraints=my_constraints, conflicts=conflicts,
                            trans_form=trans_form, pending_trans=pending_trans, history_trans=history_trans,
@@ -253,6 +379,27 @@ def request_join_room(room_id):
         flash('You are already in this room.', 'info')
         return redirect(url_for('chat.chat'))
     
+    # [LOGIC MỚI] Nếu phòng cho phép Auto Join -> Vào thẳng luôn
+    if room.allow_auto_join:
+        room.members.append(current_user)
+        
+        # Cập nhật sở thích AI (User thích phòng này)
+        if room.tags:
+            tags_list = room.tags.split(',')
+            auto_update_user_interest(current_user.id, tags_list, weight_increment=2.0)
+
+        # Thông báo vào phòng
+        sys_msg = Message(body=f"has joined the room directly.", room=room.name, author=current_user)
+        db.session.add(sys_msg)
+        db.session.commit()
+        
+        # Bắn socket cập nhật danh sách
+        socketio.emit('status', {'msg': f'{current_user.username} joined.'}, to=room.name)
+        
+        flash(f'Welcome aboard! You have joined {room.name}.', 'success')
+        return redirect(url_for('chat.chat_room', room_name=room.name))
+
+    # --- LOGIC CŨ (Cần duyệt) ---
     # Kiểm tra xem đã gửi yêu cầu chưa
     existing_req = RoomRequest.query.filter_by(user_id=current_user.id, room_id=room.id).first()
     if existing_req:
@@ -263,9 +410,8 @@ def request_join_room(room_id):
     req = RoomRequest(room_id=room.id, user_id=current_user.id, status='pending_owner')
     db.session.add(req)
     
-    # [Optional] Tạo thông báo hệ thống vào phòng chat để chủ phòng thấy ngay
     sys_msg = Message(body=f"System: {current_user.username} wants to join this room.", 
-                      room=room.name, user_id=current_user.id) # user_id tạm để current, hoặc tạo 1 user system ảo
+                      room=room.name, user_id=current_user.id) 
     db.session.add(sys_msg)
     
     db.session.commit()

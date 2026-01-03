@@ -40,9 +40,7 @@ class OpenMeteoClient:
         if wind_max > 30.0: risks.append("RISK_HIGH_WIND")
         return risks if risks else ["NORMAL"]
 
-    # --- [QUAN TRỌNG] HÀM TÌM KIẾM TRẢ VỀ DANH SÁCH ---
     def search_locations(self, query: str, limit: int = 5) -> List[Dict[str, Any]]:
-        """Trả về danh sách tối đa 5 địa điểm."""
         try:
             params = {'name': query, 'count': limit, 'language': 'en', 'format': 'json'}
             response = requests.get(self.GEOCODING_URL, params=params)
@@ -50,7 +48,6 @@ class OpenMeteoClient:
             results = []
             if 'results' in data and data['results']:
                 for item in data['results']:
-                    # Tạo tên hiển thị đầy đủ: "Paris, Ile-de-France, FR"
                     parts = [item.get('name')]
                     if item.get('admin1'): parts.append(item.get('admin1'))
                     if item.get('country_code'): parts.append(item.get('country_code'))
@@ -67,7 +64,6 @@ class OpenMeteoClient:
             return []
 
     def _get_aqi_info(self, aqi: int) -> Tuple[str, str, str]:
-        """Trả về (Mô tả, Mã màu HEX, Màu chữ)"""
         if aqi <= 50: return "Tốt", "#00e400", "#000000"
         if aqi <= 100: return "Trung bình", "#ffff00", "#000000"
         if aqi <= 150: return "Kém", "#ff7e00", "#ffffff"
@@ -76,7 +72,6 @@ class OpenMeteoClient:
         return "Nguy hại", "#7e0023", "#ffffff"
 
     def get_full_forecast(self, lat: float, lon: float) -> Dict[str, Any]:
-        # 1. Lấy dữ liệu Thời tiết
         weather_params = {
             'latitude': lat, 'longitude': lon,
             'current': ",".join(self.DEFAULT_CURRENT_VARS),
@@ -85,14 +80,11 @@ class OpenMeteoClient:
             'timezone': self.default_timezone,
             'forecast_days': 3, 'temperature_unit': 'celsius', 'wind_speed_unit': 'kmh'
         }
-        
-        # 2. Lấy dữ liệu AQI (US Standard)
         aqi_params = {
             'latitude': lat, 'longitude': lon,
             'current': 'us_aqi',
             'timezone': self.default_timezone
         }
-
         try:
             w_res = requests.get(self.BASE_URL, params=weather_params)
             w_res.raise_for_status()
@@ -101,7 +93,6 @@ class OpenMeteoClient:
             a_res = requests.get(self.AQI_URL, params=aqi_params)
             aqi_data = a_res.json() if a_res.status_code == 200 else {}
             
-            # Merge AQI vào weather data để xử lý chung
             weather_data['aqi_current'] = aqi_data.get('current', {}).get('us_aqi', 0)
             return weather_data
         except Exception as e:
@@ -119,7 +110,6 @@ class OpenMeteoClient:
         w_max = daily['wind_speed_10m_max'][0] if daily.get('time') else 0
         risks = self._analyze_daily_risk(t_max, t_min, precip, w_max)
 
-        # Xử lý AQI
         aqi_val = raw_data.get('aqi_current', 0)
         aqi_desc, aqi_bg, aqi_text = self._get_aqi_info(aqi_val)
 
@@ -171,16 +161,29 @@ weather_service = OpenMeteoClient(default_timezone='Asia/Ho_Chi_Minh')
 @weather_bp.route('/<int:room_id>', methods=['GET'])
 def view_weather(room_id):
     room = Room.query.get_or_404(room_id)
-    # Mặc định render trang với HCM City
+    
+    # [FIX] Nhận tham số hide_nav để truyền vào template
+    hide_nav = request.args.get('hide_nav', default=False, type=bool)
+
     lat, lon = 10.8231, 106.6297
     display_location = "Hồ Chí Minh, VN"
     
+    city_query = request.args.get('city')
+    if city_query:
+        search_res = weather_service.search_locations(city_query, limit=1)
+        if search_res:
+            lat, lon = search_res[0]['lat'], search_res[0]['lon']
+            display_location = search_res[0]['name']
+
     raw_data = weather_service.get_full_forecast(lat, lon)
     weather_data = weather_service.process_forecast_data(raw_data)
 
-    return render_template('weather.html', room=room, weather=weather_data, location_name=display_location)
+    return render_template('weather.html', 
+                           room=room, 
+                           weather=weather_data, 
+                           location_name=display_location,
+                           hide_nav=hide_nav)
 
-# --- [QUAN TRỌNG] API TÌM KIẾM ĐỊA ĐIỂM (ĐÂY LÀ HÀM BẠN ĐANG THIẾU) ---
 @weather_bp.route('/api/search', methods=['GET'])
 def search_city():
     query = request.args.get('q', '')
@@ -189,14 +192,10 @@ def search_city():
     results = weather_service.search_locations(query)
     return jsonify(results)
 
-# --- API LẤY THỜI TIẾT THEO TỌA ĐỘ ---
 @weather_bp.route('/api/forecast', methods=['GET'])
 def get_forecast():
-    # Frontend giờ sẽ gửi lat/lon trực tiếp sau khi user chọn từ list
     lat = float(request.args.get('lat', 10.8231))
     lon = float(request.args.get('lon', 106.6297))
-    
-    # Frontend gửi kèm tên hiển thị để Backend trả lại (hoặc Frontend tự render)
     location_name = request.args.get('name', 'Hồ Chí Minh, VN')
 
     raw_data = weather_service.get_full_forecast(lat, lon)

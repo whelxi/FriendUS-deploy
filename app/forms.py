@@ -107,6 +107,9 @@ class CreateRoomForm(FlaskForm):
     # [FIX 5] validate_choice=False
     tags = SelectMultipleField('Tags (Max 5)', choices=TAG_CHOICES, validate_choice=False)
 
+    # [NEW] Checkbox cho phép vào luôn
+    allow_auto_join = BooleanField('Allow Instant Join (Skip Admin Approval)', default=False)
+
     submit = SubmitField('Create Room')
 
     def validate_name(self, name):

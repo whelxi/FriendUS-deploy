@@ -2,620 +2,771 @@
 
 {% block content %}
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
-<link href="https://api.mapbox.com/mapbox-gl-js/v2.15.0/mapbox-gl.css" rel="stylesheet">
 <link href="https://unpkg.com/vis-timeline/styles/vis-timeline-graph2d.min.css" rel="stylesheet" type="text/css" />
 <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
 
 <style>
-    /* --- CHAT STYLING (REDESIGNED) --- */
-    #chat-container { 
-        display: flex; flex-direction: row; height: 75vh; 
-        border: none; border-radius: 1rem; overflow: hidden; 
-        box-shadow: 0 10px 30px rgba(0,0,0,0.08); /* Đổ bóng mềm */
-        background: #fff;
+    /* =========================================
+       1. FIXED LAYOUT (APP STYLE)
+       ========================================= */
+    :root {
+        --sidebar-left-width: 260px;
+        --sidebar-right-width: 260px;
+        --navbar-height: 76px;
+        --bg-chat: #ffffff;
+        --bg-sidebar: #f7f7f7;
     }
+
+    .app-fixed-wrapper {
+        position: fixed; top: var(--navbar-height); left: 0; right: 0; bottom: 0;
+        background-color: #fff; z-index: 100; display: flex; overflow: hidden;
+    }
+
+    /* --- SIDEBAR --- */
+    .app-sidebar {
+        width: var(--sidebar-left-width); background: var(--bg-sidebar); border-right: 1px solid #e5e5e5;
+        display: flex; flex-direction: column; padding: 20px 12px; flex-shrink: 0;
+    }
+    .nav-pills .nav-link {
+        border-radius: 8px; padding: 12px 16px; margin-bottom: 6px; color: #5e6065;
+        font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 12px; transition: all 0.2s;
+    }
+    .nav-pills .nav-link:hover { background-color: #e4e6ea; color: #000; }
+    .nav-pills .nav-link.active { background: #e7f3ff; color: #0084ff; }
+
+    /* --- MAIN AREA --- */
+    .app-main { flex: 1; display: flex; flex-direction: column; background-color: var(--bg-chat); position: relative; min-width: 0; }
+    .app-header { height: 60px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; flex-shrink: 0; background: #fff; }
+    .app-content-body { flex: 1; display: flex; overflow: hidden; position: relative; } /* Added position relative */
+
+    /* --- CHAT CSS --- */
+    .chat-area-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; }
+    #messages { flex: 1; padding: 20px 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
+    .message-bubble { max-width: 65%; padding: 10px 16px; font-size: 0.95rem; line-height: 1.5; position: relative; }
+    .message-self { align-self: flex-end; background: #0084ff; color: white; border-radius: 18px 18px 4px 18px; }
+    .message-other { align-self: flex-start; background: #f0f2f5; color: #050505; border-radius: 18px 18px 18px 4px; }
+    .chat-input-container { padding: 20px; background: #fff; }
+    .chat-input-wrapper { background: #f0f2f5; border-radius: 30px; padding: 6px 15px; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; transition: border 0.2s; }
+    .chat-input-wrapper:focus-within { border-color: #0084ff; background: #fff; box-shadow: 0 0 0 2px rgba(0,132,255,0.1); }
+    #message-input { background: transparent; border: none; box-shadow: none; padding: 8px 0; font-size: 0.95rem; }
+
+    /* --- RIGHT SIDEBAR --- */
+    .right-sidebar { width: var(--sidebar-right-width); background: #fff; border-left: 1px solid #f0f0f0; display: flex; flex-direction: column; padding-top: 20px; flex-shrink: 0; height: 100%; } /* [FIX] Thêm height 100% */
     
-    /* Sidebar */
-    #user-sidebar { 
-        flex: 0 0 240px; background-color: #ffffff; 
-        border-right: 1px solid #f0f0f0; padding: 1.5rem; 
-        overflow-y: auto; 
-    }
-    #user-sidebar h6 { letter-spacing: 0.5px; text-transform: uppercase; font-size: 0.75rem; color: #adb5bd; font-weight: 700; }
-
-    /* Main Chat Area */
-    #chat-main { 
-        flex-grow: 1; display: flex; flex-direction: column; height: 100%; position: relative; 
-        background: linear-gradient(135deg, #fdfbfb 0%, #ebedee 100%); 
+    /* [FIX] Thêm CSS cho container danh sách user để cuộn */
+    #user-list-container {
+        flex: 1;            /* Chiếm toàn bộ không gian còn lại */
+        overflow-y: auto;   /* Cho phép cuộn dọc */
+        overflow-x: hidden;
+        padding: 0 10px 20px 10px; /* Padding để scroll không bị sát lề */
     }
 
-    /* Messages Area */
-    #messages { 
-        flex-grow: 1; overflow-y: scroll; padding: 1.5rem; 
-        display: flex; flex-direction: column; gap: 0.5rem; 
-        scroll-behavior: smooth;
-    }
+    .member-item { display: flex; align-items: center; padding: 10px; margin-bottom: 2px; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
+    .member-item:hover { background-color: #f5f5f5; }
+    .member-avatar { width: 36px; height: 36px; border-radius: 50%; background: #e4e6eb; color: #050505; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-right: 12px; position: relative; font-size: 0.9rem; }
+    .status-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; position: absolute; bottom: -2px; right: -2px; }
+    .status-online { background-color: #31a24c; }
+    .status-offline { background-color: #adb5bd; }
+
+    /* --- MAP STYLES (Embed) --- */
+    #map-container { position: relative; width: 100%; height: 100%; font-family: 'Roboto', 'Segoe UI', sans-serif; overflow: hidden; }
+    #map { width: 100%; height: 100%; z-index: 1; }
     
-    /* Bubbles */
-    .message-bubble { 
-        max-width: 70%; padding: 0.75rem 1.25rem; margin-bottom: 0.25rem; 
-        position: relative; word-wrap: break-word; font-size: 0.95rem;
-        box-shadow: 0 2px 5px rgba(0,0,0,0.03);
-    }
+    /* Search Bar Map */
+    #floating-search-bar { position: absolute; top: 16px; left: 16px; z-index: 1000; display: flex; gap: 8px; align-items: center; transition: opacity 0.2s ease; }
+    .search-container-pill { background: white; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.2); display: flex; align-items: center; width: 350px; height: 48px; padding: 0 12px; transition: box-shadow 0.2s; }
+    .search-input { flex: 1; border: none; outline: none; font-size: 16px; background: transparent; height: 100%; padding-left: 10px; color: #202124; }
+    .search-btn-grey { border: none; background: none; color: #5f6368; font-size: 20px; cursor: pointer; padding: 8px; border-radius: 50%; }
+    .direction-icon-btn { border: none; background: none; color: #1a73e8; font-size: 22px; cursor: pointer; padding: 8px; border-radius: 50%; }
+
+    /* Sidebar Map (Directions) */
+    #map-sidebar-panel { position: absolute; top: 0; left: 0; bottom: 0; width: 360px; background: white; z-index: 1001; box-shadow: 4px 0 12px rgba(0,0,0,0.15); transform: translateX(-110%); transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column; }
+    #map-sidebar-panel.active { transform: translateX(0); }
+    .sidebar-header { padding: 12px 16px; display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0; }
+    .input-row { background: #f1f3f4; border-radius: 8px; height: 40px; display: flex; align-items: center; padding: 0 12px; margin-bottom: 8px; }
+    .input-row input { border: none; background: transparent; outline: none; width: 100%; font-size: 14px; }
+    .mode-selector { display: flex; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid #e8eaed; }
+    .mode-btn { flex: 1; border: none; background: none; padding: 6px; border-radius: 20px; color: #5f6368; cursor: pointer; }
+    .mode-btn.active { background: #e8f0fe; color: #1967d2; font-weight: 500; }
     
-    .message-self { 
-        align-self: flex-end; 
-        background: linear-gradient(135deg, #0d6efd 0%, #0a58ca 100%); 
-        color: white; 
-        border-radius: 18px 18px 4px 18px; 
-    }
-    
-    .message-other { 
-        align-self: flex-start; 
-        background-color: #ffffff; 
-        color: #333;
-        border: 1px solid #f1f1f1;
-        border-radius: 18px 18px 18px 4px; 
-    }
-    
-    .message-info { font-size: 0.7rem; margin-bottom: 4px; opacity: 0.8; }
-    .message-self .message-info { color: rgba(255,255,255,0.9); text-align: right; }
-    .message-other .message-info { color: #6c757d; text-align: left; }
+    /* Search Results Map */
+    #search-results { position: absolute; top: 70px; left: 16px; width: 350px; background: white; border-radius: 8px; box-shadow: 0 4px 12px rgba(0,0,0,0.2); max-height: 60vh; overflow-y: auto; display: none; z-index: 1002; }
+    .result-item { padding: 12px 16px; border-bottom: 1px solid #f1f3f4; cursor: pointer; display: flex; gap: 12px; align-items: center; }
+    .result-item:hover { background: #f8f9fa; }
 
-    /* Scrollbar */
-    #messages::-webkit-scrollbar { width: 6px; }
-    #messages::-webkit-scrollbar-track { background: transparent; }
-    #messages::-webkit-scrollbar-thumb { background: #d1d5db; border-radius: 10px; }
-    #messages::-webkit-scrollbar-thumb:hover { background: #9ca3af; }
+    /* Bottom Info Card */
+    #bottom-card { position: absolute; bottom: 24px; left: 50%; transform: translate(-50%, 150%); width: 95%; max-width: 400px; background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.18); padding: 16px 20px; z-index: 999; display: flex; align-items: center; justify-content: space-between; transition: transform 0.3s; }
+    #bottom-card.visible { transform: translate(-50%, 0); }
+    .circle-btn { width: 40px; height: 40px; border-radius: 50%; background: #1a73e8; color: white; border: none; font-size: 20px; display: flex; align-items: center; justify-content: center; cursor: pointer; }
 
-    /* Typing & Emoji */
-    #typing-status { font-size: 0.75rem; color: #6c757d; padding: 0 1.5rem 0.5rem; font-style: italic; min-height: 20px;}
-    
-    /* --- TAB STYLING --- */
-    .nav-tabs .nav-link.active { background-color: #f8f9fa; border-bottom-color: transparent; font-weight: bold; }
-
-    /* --- TIMELINE STYLING --- */
-    #visual-timeline { height: 400px; border: 1px solid #dee2e6; background-color: #f8f9fa; }
-    .vis-item { border-color: #17a2b8; background-color: #17a2b8; color: white; font-size: 14px; border-radius: 4px; }
-    .vis-item.vis-selected { border-color: #117a8b; background-color: #138496; color: white; }
-    .vis-current-time { background-color: #dc3545; width: 2px; }
-
-    /* --- STAR RATING --- */
-    .star-rating { font-size: 1.5rem; color: #ffc107; cursor: pointer; }
-    .star-rating .bi-star { color: #ddd; }
-    .star-rating .bi-star-fill { color: #ffc107; }
-
-    /* --- MAP PICKER STYLING --- */
-    #picker-map { width: 100%; height: 400px; border-radius: 0.25rem; }
-
-    /* --- WEATHER SCROLL STYLING --- */
-    .hourly-scroll::-webkit-scrollbar { height: 6px; }
-    .hourly-scroll::-webkit-scrollbar-track { background: #f1f1f1; border-radius: 4px; }
-    .hourly-scroll::-webkit-scrollbar-thumb { background: #c1c1c1; border-radius: 4px; }
-    .hourly-scroll::-webkit-scrollbar-thumb:hover { background: #a8a8a8; }
+    /* Leaflet Fixes */
+    .leaflet-default-icon-path { background-image: url(https://unpkg.com/leaflet@1.9.4/dist/images/marker-icon.png); }
 </style>
 
-<div class="container-fluid mt-2">
-    <div class="d-flex justify-content-between align-items-center mb-2">
-        <h3>
-            <i class="bi bi-geo-alt-fill text-primary"></i> {{ room.name }} 
-            <small class="text-muted fs-6">{{ room.description }}</small>
-        </h3>
-        
-        <div class="d-flex gap-2">
-            <button class="btn btn-sm btn-outline-primary rounded-pill" data-bs-toggle="modal" data-bs-target="#inviteModal">
-                <i class="bi bi-person-plus-fill"></i> Invite
+<div class="app-fixed-wrapper">
+    <nav class="app-sidebar">
+        <div class="mb-4 px-3">
+            <h5 class="fw-bold text-primary m-0" style="font-family: sans-serif; letter-spacing: -0.5px;">
+                <i class="bi bi-exclude me-2"></i>FriendUS
+            </h5>
+            <small class="text-muted opacity-75">Workspace</small>
+        </div>
+
+        <div class="nav flex-column nav-pills" id="roomTabs" role="tablist">
+            <button class="nav-link active" id="chat-tab" data-bs-toggle="pill" data-bs-target="#chat-panel" type="button" role="tab">
+                <i class="bi bi-chat-text-fill"></i> <span>Thảo luận</span>
             </button>
+            <a class="nav-link" href="{{ url_for('planner.view_planner', room_id=room.id) }}">
+                <i class="bi bi-calendar-range-fill"></i> <span>Lịch trình</span>
+            </a>
+            <button class="nav-link" id="finance-tab" data-bs-toggle="pill" data-bs-target="#finance-panel" type="button" role="tab">
+                <i class="bi bi-piggy-bank-fill"></i> <span>Quỹ nhóm</span>
+            </button>
+            <button class="nav-link" id="map-tab" data-bs-toggle="pill" data-bs-target="#map-panel" type="button" role="tab">
+                <i class="bi bi-map-fill"></i> <span>Bản đồ</span>
+             </button>
+            <button class="nav-link" id="weather-tab" data-bs-toggle="pill" data-bs-target="#weather-panel" type="button" role="tab">
+                <i class="bi bi-cloud-sun-fill"></i> <span>Thời tiết</span>
+            </button>
+        </div>
         
+        <div class="mt-auto pt-3 border-top">
             <div class="dropdown">
-                <button class="btn btn-sm btn-outline-secondary rounded-pill dropdown-toggle" type="button" data-bs-toggle="dropdown">
-                    <i class="bi bi-gear-fill"></i> Settings
+                <button class="btn btn-light w-100 d-flex justify-content-between align-items-center bg-white border shadow-sm rounded-3 py-2" data-bs-toggle="dropdown">
+                    <span class="small fw-bold"><i class="bi bi-gear-fill me-2 text-secondary"></i>Cài đặt</span>
                 </button>
-                <ul class="dropdown-menu dropdown-menu-end">
+                <ul class="dropdown-menu w-100 shadow border-0 mb-2">
+                    <li><a class="dropdown-item" href="{{ url_for('main.index') }}">Về trang chủ</a></li>
+                    <li><hr class="dropdown-divider"></li>
                     {% if current_user.id == room.creator_id %}
-                        <li>
-                            <form action="{{ url_for('chat.delete_chat_room', room_id=room.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to PERMANENTLY delete this room?');">
-                                <button class="dropdown-item text-danger"><i class="bi bi-trash"></i> Delete Room</button>
-                            </form>
-                        </li>
+                    <li>
+                        <form action="{{ url_for('chat.delete_chat_room', room_id=room.id) }}" method="POST" onsubmit="return confirm('Xóa vĩnh viễn nhóm này?');">
+                            <button class="dropdown-item text-danger small"><i class="bi bi-trash me-2"></i>Xóa nhóm</button>
+                        </form>
+                    </li>
                     {% else %}
-                        <li>
-                            <form action="{{ url_for('chat.leave_chat_room', room_id=room.id) }}" method="POST" onsubmit="return confirm('Are you sure you want to leave this group?');">
-                                <button class="dropdown-item text-warning"><i class="bi bi-box-arrow-right"></i> Leave Group</button>
-                            </form>
-                        </li>
+                    <li>
+                        <form action="{{ url_for('chat.leave_chat_room', room_id=room.id) }}" method="POST" onsubmit="return confirm('Bạn chắc chắn muốn rời nhóm?');">
+                            <button class="dropdown-item text-warning small"><i class="bi bi-box-arrow-right me-2"></i>Rời nhóm</button>
+                        </form>
+                    </li>
                     {% endif %}
                 </ul>
             </div>
         </div>
-    </div>
-        
-    {% if room.creator == current_user and pending_requests %}
-    <div class="alert alert-warning shadow-sm">
-        <h5 class="alert-heading"><i class="bi bi-exclamation-circle-fill"></i> Pending Requests</h5>
-        <div class="list-group">
-            {% for req in pending_requests %}
-            <div class="list-group-item d-flex justify-content-between align-items-center bg-white border-0 mb-1 rounded">
-                <div>
-                    <strong>{{ req.user.username }}</strong> wants to join.
+    </nav>
+
+    <main class="app-main">
+        <header class="app-header">
+            <div class="d-flex align-items-center gap-3">
+                <div class="d-flex align-items-center justify-content-center bg-gradient bg-primary text-white rounded-circle shadow-sm" style="width: 38px; height: 38px; font-weight: bold;">
+                    {{ room.name[0]|upper }}
                 </div>
                 <div>
-                    <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='accept') }}" method="POST"><button class="btn btn-sm btn-success me-1">Approve</button></form>
-                    <form class="d-inline" action="{{ url_for('chat.manage_request', req_id=req.id, action='reject') }}" method="POST"><button class="btn btn-sm btn-danger">Reject</button></form>
-                </div>
-            </div>
-            {% endfor %}
-        </div>
-    </div>
-    {% endif %}
-
-    <div>
-        {% if room.is_private %}
-            <span class="badge bg-secondary"><i class="bi bi-lock-fill"></i> Private</span>
-        {% else %}
-            <span class="badge bg-success"><i class="bi bi-globe"></i> Public</span>
-        {% endif %}
-    </div>
-
-    <ul class="nav nav-tabs mt-3" id="roomTabs" role="tablist">
-        <li class="nav-item">
-            <button class="nav-link active" id="chat-tab" data-bs-toggle="tab" data-bs-target="#chat-panel" type="button" role="tab">
-                <i class="bi bi-chat-dots"></i> Chat
-            </button>
-        </li>
-        <li class="nav-item">
-            <a class="nav-link" href="{{ url_for('planner.view_planner', room_id=room.id) }}">
-                <i class="bi bi-calendar-check"></i> Planner
-            </a>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="finance-tab" data-bs-toggle="tab" data-bs-target="#finance-panel" type="button" role="tab">
-                <i class="bi bi-cash-coin"></i> Finance
-            </button>
-        </li>
-        <li class="nav-item">
-            <button class="nav-link" id="weather-tab" data-bs-toggle="tab" data-bs-target="#weather-panel" type="button" role="tab">
-                <i class="bi bi-cloud-sun-fill"></i> Weather
-            </button>
-        </li>
-    </ul>
-
-    <div class="tab-content border border-top-0 p-3 bg-white shadow-sm" id="roomTabsContent" style="min-height: 75vh;">
-        
-        <div class="tab-pane fade show active" id="chat-panel" role="tabpanel">
-            <div id="chat-container">
-                <div id="user-sidebar">
-                    <div class="d-flex align-items-center mb-4 text-primary">
-                        <i class="bi bi-people-fill fs-5 me-2"></i>
-                        <h6 class="mb-0 text-dark fw-bold">Members (<span id="user-count">0</span>)</h6>
-                    </div>
-                    <div id="user-list-container">
-                        </div>
-                </div>
-
-                <div id="chat-main">
-                    <div id="messages"></div>
-                    
-                    <div id="typing-status"></div>
-                    
-                    <div id="emoji-picker" style="display:none; position: absolute; bottom: 80px; right: 20px; z-index: 100; box-shadow: 0 5px 20px rgba(0,0,0,0.15); border-radius: 8px;">
-                        <emoji-picker></emoji-picker>
-                    </div>
-
-                    <div class="p-3 bg-transparent"> 
-                        <div class="bg-white p-2 rounded-4 shadow-sm border border-light">
-                            <form id="chat-form" class="d-flex align-items-center gap-2">
-                                <button class="btn btn-sm text-white rounded-pill px-3 fw-bold" type="button" id="btn-summarize" 
-                                        style="background: linear-gradient(45deg, #FFB75E, #ED8F03); border: none; white-space: nowrap;"
-                                        title="Summarize recent chat with AI">
-                                    <i class="bi bi-stars"></i> AI Recap
-                                </button>
-                                
-                                <input type="text" class="form-control border-0 bg-light rounded-pill px-3 py-2" id="message-input" placeholder="Nhập tin nhắn..." autocomplete="off" style="box-shadow: none;">
-
-                                <button class="btn btn-light text-secondary rounded-circle" type="button" id="emoji-btn" style="width: 40px; height: 40px;">
-                                    <i class="bi bi-emoji-smile-fill fs-5"></i>
-                                </button>
-                                
-                                <button class="btn btn-primary rounded-circle shadow-sm" type="submit" style="width: 42px; height: 42px; display: flex; align-items: center; justify-content: center;">
-                                    <i class="bi bi-send-fill ms-1"></i>
-                                </button>
-                            </form>
-                        </div>
+                    <h6 class="fw-bold mb-0 text-dark">{{ room.name }}</h6>
+                    <div class="d-flex align-items-center small text-muted">
+                        <span>{{ room.members.count() }} thành viên</span>
                     </div>
                 </div>
             </div>
-        </div>
+             <div class="d-flex align-items-center gap-2">
+                <button class="btn btn-outline-primary btn-sm rounded-pill fw-semibold px-3" id="btn-header-summarize">
+                    <i class="bi bi-stars me-1"></i> AI Recap
+                </button>
 
-        <div class="tab-pane fade" id="finance-panel" role="tabpanel">
-            <div class="row">
-                <div class="col-md-4">
-                    <div class="card mb-3">
-                        <div class="card-header bg-success text-white">New Transaction</div>
-                        <div class="card-body">
-                            <form action="{{ url_for('finance.add_room_transaction', room_id=room.id) }}" method="POST">
-                                {{ trans_form.hidden_tag() }}
-                                <div class="mb-3">
-                                    <label class="form-label small fw-bold">Type</label>
-                                    {% for subfield in trans_form.type %}
-                                        <div class="form-check">
-                                            {{ subfield(class="form-check-input") }} 
-                                            {{ subfield.label(class="form-check-label small") }}
-                                        </div>
-                                    {% endfor %}
-                                </div>
-                                <div class="mb-2">
-                                    <div class="input-group input-group-sm">
-                                        {{ trans_form.amount(class="form-control", placeholder="Amount") }}
-                                        <span class="input-group-text">VND</span>
-                                    </div>
-                                </div>
-                                <div class="mb-2">{{ trans_form.description(class="form-control form-control-sm", placeholder="Description") }}</div>
-                                <div class="form-check form-switch mb-2">
-                                    {{ trans_form.is_outside(class="form-check-input", id="switchOutside") }}
-                                    <label class="form-check-label small" for="switchOutside">Is Stranger?</label>
-                                </div>
-                                <div id="memberInput" class="mb-2">{{ trans_form.receiver(class="form-select form-select-sm") }}</div>
-                                <div id="outsiderInput" class="mb-2" style="display:none;">{{ trans_form.outsider_name(class="form-control form-control-sm", placeholder="Stranger Name") }}</div>
-                                {{ trans_form.submit(class="btn btn-success btn-sm w-100") }}
-                            </form>
-                        </div>
-                    </div>
-                    {% if pending_trans %}
-                    <div class="alert alert-warning p-2">
-                        <h6 class="alert-heading h6">Need Confirmation</h6>
-                        <ul class="list-unstyled mb-0 small">
-                        {% for p in pending_trans %}
-                            <li class="border-bottom py-1">
-                                <strong>{{ p.sender.username }}</strong>: {{ "{:,.0f}".format(p.amount) }} VND
-                                <form action="{{ url_for('finance.confirm_transaction', trans_id=p.id) }}" method="POST" class="d-inline float-end">
-                                    <button class="btn btn-xs btn-outline-dark py-0 px-1">Confirm</button>
+                <button class="btn btn-primary btn-sm rounded-pill fw-semibold px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#inviteModal">
+                    <i class="bi bi-person-plus-fill me-1"></i> Thêm bạn
+                </button>
+            </div>
+        </header>
+
+        <div class="app-content-body">
+            <div class="tab-content w-100 h-100" id="roomTabsContent">
+                
+                <div class="tab-pane fade show active h-100" id="chat-panel" role="tabpanel">
+                    <div class="d-flex h-100 w-100">
+                        <div class="chat-area-wrapper">
+                            <div id="messages">
+    {% for msg in messages %}
+        <div class="message-bubble {{ 'message-self' if msg.author == current_user else 'message-other' }}">
+            <strong>{{ 'You' if msg.author == current_user else msg.author.username }}</strong>: {{ msg.body }}
+        </div>
+    {% endfor %}
+</div>
+                            <div id="typing-status" class="px-4 pb-1 text-muted small fst-italic" style="min-height: 20px;"></div>
+                            <div class="chat-input-container">
+                                <form id="chat-form" class="chat-input-wrapper">
+                                    <input type="text" class="form-control" id="message-input" placeholder="Nhập tin nhắn..." autocomplete="off">
+                                    <button class="btn btn-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center border-0" type="submit" style="width: 32px; height: 32px;">
+                                        <i class="bi bi-send-fill" style="font-size: 0.8rem;"></i>
+                                    </button>
                                 </form>
-                            </li>
-                        {% endfor %}
-                        </ul>
-                    </div>
-                    {% endif %}
-                </div>
-                <div class="col-md-8">
-                    <div class="card h-100 shadow-sm">
-                        <div class="card-header d-flex justify-content-between">
-                            <span>Debt Network</span>
-                            <button onclick="loadGraph()" class="btn btn-sm btn-outline-primary">Refresh</button>
+                            </div>
                         </div>
-                        <div class="card-body p-0">
-                            <div id="finance-network" style="height: 500px; width: 100%;"></div>
-                        </div>
+                        <aside class="right-sidebar">
+                            <div class="member-header">Thành viên — <span id="user-count">{{ room.members.count() }}</span></div>
+                            <div id="user-list-container">
+                                {% for member in room.members %}
+                                <div class="member-item">
+                                    <div class="member-avatar">
+                                        {{ member.username[0]|upper }}
+                                        {# Mặc định hiện offline, socket sẽ update lại sau #}
+                                        <span class="status-dot status-offline"></span>
+                                    </div>
+                                    <div class="small">{{ member.username }}</div>
+                                </div>
+                                {% endfor %}
+                            </div>
+                        </aside>
                     </div>
                 </div>
-            </div>
-        </div>
 
-        <div class="tab-pane fade" id="weather-panel" role="tabpanel">
-            <div class="container-fluid p-3">
-                <div class="position-relative mb-3" style="max-width: 500px; margin: 0 auto;">
-                    <div class="input-group">
-                        <input type="text" id="weather-search-input" class="form-control" placeholder="Nhập tên thành phố..." autocomplete="off" onkeydown="if(event.key === 'Enter') handleSearch()">
-                        <button class="btn btn-primary" type="button" onclick="handleSearch()"><i class="bi bi-search"></i></button>
-                    </div>
-                    <div id="search-results-list" class="list-group position-absolute w-100 shadow mt-1" style="z-index: 1000; display: none; max-height: 200px; overflow-y: auto;"></div>
+                <div class="tab-pane fade h-100" id="finance-panel" role="tabpanel">
+                     <div class="p-4 h-100 overflow-auto d-flex justify-content-center align-items-center text-muted">
+                        <em>Finance content here...</em>
+                     </div>
                 </div>
-                <div id="weather-loading" class="text-center py-5">
-                    <div class="spinner-border text-primary" role="status"></div>
-                    <p class="mt-2 text-muted">Đang tải dữ liệu thời tiết...</p>
-                </div>
-                <div id="weather-error" class="alert alert-danger" style="display: none;"></div>
-                <div id="weather-content" style="display: none;">
-                    <div class="card text-white mb-4 shadow" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border: none; border-radius: 20px;">
-                        <div class="card-body p-4">
-                            <div class="row align-items-center">
-                                <div class="col-md-6">
-                                    <h4 class="fw-light opacity-75"><i class="bi bi-geo-alt-fill"></i> <span id="w-location">Hồ Chí Minh, VN</span></h4>
-                                    <h1 style="font-size: 4rem; font-weight: bold;"><span id="w-temp">--</span>°C</h1>
-                                    <p class="fs-5 mb-0" id="w-desc">--</p>
-                                    <div class="mt-4 d-flex flex-wrap gap-2">
-                                        <span class="badge bg-white text-dark shadow-sm d-flex align-items-center" style="font-size: 1rem; padding: 10px 15px; border-radius: 12px;">
-                                            <span class="me-2 fs-5">💧</span> <span id="w-precip">0</span> mm
-                                        </span>
-                                        <span class="badge bg-white text-dark shadow-sm d-flex align-items-center" style="font-size: 1rem; padding: 10px 15px; border-radius: 12px;">
-                                            <span class="me-2 fs-5">💨</span> <span id="w-wind">0</span> km/h
-                                        </span>
-                                        
-                                        <span id="w-aqi" class="badge shadow-sm d-flex align-items-center" 
-                                              style="display: none; font-size: 1rem; padding: 10px 15px; border-radius: 12px;">
-                                        </span>
+
+                <div class="tab-pane fade h-100 w-100" id="map-panel" role="tabpanel">
+                    <div id="map-container">
+                        <div id="floating-search-bar">
+                            <div class="search-container-pill">
+                                <input type="text" id="main-search-input" class="search-input" placeholder="Search OpenStreetMap..." autocomplete="off">
+                                <button class="search-btn-grey" id="btn-trigger-search" title="Search"><i class="bi bi-search"></i></button>
+                                <div class="v-divider" style="width:1px; height:28px; background:#dfe1e5; margin:0 8px;"></div>
+                                <button class="direction-icon-btn" id="btn-open-routes" title="Directions"><i class="bi bi-cursor-fill"></i></button>
+                            </div>
+                        </div>
+
+                        <div id="map-sidebar-panel">
+                            <div class="sidebar-header">
+                                <button class="close-sidebar-btn" id="btn-close-sidebar" style="border:none; bg:none; cursor:pointer;"><i class="bi bi-arrow-left"></i></button>
+                                <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
+                                    <div class="input-row">
+                                        <i class="bi bi-circle" style="font-size: 12px; margin-right: 10px; color: #5f6368;"></i>
+                                        <input type="text" id="input-start" placeholder="Starting point" autocomplete="off">
+                                    </div>
+                                    <div class="input-row">
+                                        <i class="bi bi-geo-alt-fill" style="font-size: 16px; margin-right: 10px; color: #ea4335;"></i>
+                                        <input type="text" id="input-end" placeholder="Destination" autocomplete="off">
                                     </div>
                                 </div>
-                                <div class="col-md-6 text-center text-md-end">
-                                    <div style="font-size: 6rem; line-height: 1;" id="w-icon">🌤️</div>
-                                    <div class="mt-3 text-end" id="w-risks"></div>
+                            </div>
+
+                            <div class="mode-selector">
+                                <button class="mode-btn active" data-mode="car" title="Driving"><i class="bi bi-car-front-fill"></i></button>
+                                <button class="mode-btn" data-mode="motorcycle" title="Motorcycle"><i class="bi bi-bicycle" style="font-weight:bold;"></i></button>
+                                <button class="mode-btn" data-mode="foot" title="Walking"><i class="bi bi-person-walking"></i></button>
+                            </div>
+
+                            <div id="route-panel-content" style="flex:1; overflow-y:auto; padding:0;">
+                                <div style="padding: 30px; text-align: center; color: #70757a;">
+                                    <i class="bi bi-map" style="font-size: 40px; color: #dfe1e5;"></i>
+                                    <p style="margin-top: 10px;">Select a destination.</p>
                                 </div>
                             </div>
                         </div>
+
+                        <div id="bottom-card">
+                            <div style="flex: 1; margin-right: 12px;">
+                                <span class="card-title" id="info-name" style="font-weight:600; display:block;">Selected Location</span>
+                                <span class="card-sub" id="info-addr" style="font-size:13px; color:#5f6368;">Fetching...</span>
+                            </div>
+                            <button class="circle-btn" id="btn-card-directions" title="Directions to here">
+                                <i class="bi bi-cursor-fill"></i>
+                            </button>
+                        </div>
+
+                        <div id="search-results"></div>
+                        
+                        <div id="map"></div>
                     </div>
-                    <h5 class="mb-3 text-muted">Dự báo 24 giờ tới</h5>
-                    <div class="d-flex flex-nowrap overflow-auto py-2 hourly-scroll" id="forecast-container" style="scroll-behavior: smooth;"></div>
+                </div>
+
+                <div class="tab-pane fade h-100" id="weather-panel" role="tabpanel">
+                     <div class="p-4 h-100 overflow-auto d-flex justify-content-center align-items-center text-muted">
+                        <em>Weather content here...</em>
+                     </div>
                 </div>
             </div>
         </div>
-    </div>
+    </main>
 </div>
 
-<div class="modal fade" id="mapModal" tabindex="-1"><div class="modal-dialog modal-lg"><div class="modal-content"><div class="modal-header"><h5 class="modal-title">Pick Location</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div><div class="modal-body"><div id="picker-map"></div></div></div></div></div>
-
 <div class="modal fade" id="inviteModal" tabindex="-1">
-    <div class="modal-dialog">
-        <div class="modal-content">
-            <div class="modal-header"><h5 class="modal-title">Invite Friends</h5><button type="button" class="btn-close" data-bs-dismiss="modal"></button></div>
+    <div class="modal-dialog modal-dialog-centered">
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header border-bottom-0">
+                <h5 class="modal-title fw-bold">Mời bạn bè</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+            </div>
             <form action="{{ url_for('chat.invite_to_room', room_id=room.id) }}" method="POST">
-                <div class="modal-body">
-                    <div class="list-group" style="max-height: 300px; overflow-y: auto;">
+                <div class="modal-body pt-0">
+                    <div class="input-group mb-3 sticky-top bg-white pt-1">
+                        <span class="input-group-text bg-light border-end-0 rounded-pill ps-3"><i class="bi bi-search text-muted"></i></span>
+                        <input type="text" id="invite-search" class="form-control bg-light border-start-0 rounded-pill" placeholder="Tìm tên bạn bè..." autocomplete="off">
+                    </div>
+
+                    <div class="list-group rounded-3 border bg-light" style="max-height: 300px; overflow-y: auto;">
                         {% if invitable_friends %}
                             {% for friend in invitable_friends %}
-                                <label class="list-group-item d-flex gap-3">
-                                    <input class="form-check-input" type="checkbox" name="friend_ids" value="{{ friend.id }}">
-                                    <span><strong>{{ friend.username }}</strong><br><small class="text-muted">{{ friend.email }}</small></span>
+                                <label class="list-group-item d-flex gap-3 align-items-center py-3 border-0 bg-transparent invite-item">
+                                    <input class="form-check-input flex-shrink-0" type="checkbox" name="friend_ids" value="{{ friend.id }}" style="width: 1.2em; height: 1.2em;">
+                                    <div class="d-flex align-items-center">
+                                        {% if 'http' in friend.image_file %}
+    <img src="{{ friend.image_file }}" class="rounded-circle me-2" width="32" height="32" style="object-fit: cover;">
+{% else %}
+    <img src="{{ url_for('static', filename='profile_pics/' + friend.image_file) }}" class="rounded-circle me-2" width="32" height="32" style="object-fit: cover;">
+{% endif %}
+                                        <span class="fw-bold invite-username">{{ friend.username }}</span>
+                                    </div>
                                 </label>
                             {% endfor %}
+                            <div id="no-result-msg" class="text-center text-muted py-3 small" style="display: none;">Không tìm thấy kết quả</div>
                         {% else %}
-                            <div class="text-center text-muted">No friends available to invite.</div>
+                            <div class="text-center text-muted py-4">Không còn ai để mời.</div>
                         {% endif %}
                     </div>
                 </div>
-                <div class="modal-footer"><button type="submit" class="btn btn-primary">Send Invites</button></div>
+                <div class="modal-footer border-top-0">
+                    <button type="button" class="btn btn-light rounded-pill" data-bs-dismiss="modal">Hủy</button>
+                    <button type="submit" class="btn btn-primary rounded-pill px-4 fw-bold">Gửi lời mời</button>
+                </div>
             </form>
         </div>
     </div>
+    <script>
+        document.getElementById('invite-search').addEventListener('input', function(e) {
+            const term = e.target.value.toLowerCase().trim();
+            const items = document.querySelectorAll('.invite-item');
+            let hasResult = false;
+
+            items.forEach(item => {
+                const name = item.querySelector('.invite-username').textContent.toLowerCase();
+                if (name.includes(term)) {
+                    item.classList.remove('d-none');
+                    item.classList.add('d-flex'); // Giữ layout flex cũ
+                    hasResult = true;
+                } else {
+                    item.classList.remove('d-flex');
+                    item.classList.add('d-none');
+                }
+            });
+
+            // Hiện thông báo nếu không tìm thấy ai
+            const noResultMsg = document.getElementById('no-result-msg');
+            if (noResultMsg) noResultMsg.style.display = (hasResult || items.length === 0) ? 'none' : 'block';
+        });
+    </script>
 </div>
 
 <div class="modal fade" id="summaryModal" tabindex="-1">
     <div class="modal-dialog modal-lg">
-        <div class="modal-content">
-            <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title"><i class="bi bi-magic"></i> AI Chat Summary</h5>
+        <div class="modal-content rounded-4 border-0 shadow">
+            <div class="modal-header bg-primary text-white border-0">
+                <h5 class="modal-title"><i class="bi bi-magic me-2"></i>AI Assistant Recap</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
             </div>
-            <div class="modal-body">
-                <div id="summary-loading" class="text-center py-3"><div class="spinner-border text-primary"></div><p>AI is thinking...</p></div>
-                <div id="summary-content" style="display: none;">
-                    <h6 class="fw-bold">Tóm tắt ngắn</h6><p id="summary-short-text" class="lead fst-italic p-3 bg-light border rounded"></p>
-                    <hr>
-<h6 class="fw-bold">Chi tiết</h6>
-<div id="summary-full-text" class="p-3 bg-light border rounded" style="overflow-y: auto; max-height: 400px;"></div>
+            <div class="modal-body p-4">
+                <div class="d-flex justify-content-center mb-4">
+                    <div class="btn-group w-75 shadow-sm" role="group">
+                        <input type="radio" class="btn-check" name="ai_mode" id="mode_normal" value="normal" checked>
+                        <label class="btn btn-outline-primary py-2" for="mode_normal"><i class="bi bi-lightning-fill"></i> Tóm tắt nhanh</label>
+                      
+                        <input type="radio" class="btn-check" name="ai_mode" id="mode_paper" value="paper">
+                        <label class="btn btn-outline-primary py-2" for="mode_paper"><i class="bi bi-journal-text"></i> Phân tích sâu</label>
+                    </div>
                 </div>
+
+                <div id="summary-loading" class="text-center py-5" style="display: none;">
+                    <div class="spinner-border text-primary" style="width: 3rem; height: 3rem;"></div>
+                    <p class="mt-3 text-muted fw-bold">Đang đọc tin nhắn...</p>
+                </div>
+                
+                <div id="summary-content" style="display: none;">
+                    <div id="summary-full-text" class="p-4 bg-light rounded-3 border" style="max-height: 400px; overflow-y: auto; line-height: 1.6;"></div>
+                    <div class="mt-3 text-end text-muted fst-italic small" id="summary-short-text"></div>
+                </div>
+
+                <div class="text-center mt-3" id="start-btn-container">
+                    <button class="btn btn-primary btn-lg px-5 rounded-pill shadow-sm fw-bold" id="btn-run-ai">
+                        <i class="bi bi-play-fill"></i> Bắt đầu
+                    </button>
+                 </div>
             </div>
         </div>
     </div>
 </div>
+
+<script id="map-config" type="application/json">
+{
+    "urls": { 
+        "search": "{{ url_for('map.api_search') }}", 
+        "reverse": "{{ url_for('map.api_reverse') }}",
+        "route": "{{ url_for('map.api_route') }}"
+    }
+}
+</script>
+
 {% endblock %}
 
 {% block scripts %}
-    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script> 
-    
     <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.7.5/socket.io.min.js"></script>
-    <script type="module" src="https://cdn.jsdelivr.net/npm/emoji-picker-element@^1/index.js"></script>
-    
-    <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
-    <script>const VisNetwork = vis.Network; const VisDataSet = vis.DataSet;</script>
-    <script src="https://unpkg.com/vis-timeline/standalone/umd/vis-timeline-graph2d.min.js"></script>
     <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
 
-    <script type="text/javascript">
-        // --- RESTORE VIS NETWORK (Conflict fix) ---
-        if (!vis.Network) vis.Network = VisNetwork;
-        if (!vis.DataSet && VisDataSet) vis.DataSet = VisDataSet;
+    <script>
+    // --- 1. CHAT SOCKET LOGIC & AI RECAP LOGIC ---
+    document.addEventListener('DOMContentLoaded', (event) => {
+        
+        // --- LOGIC AI RECAP ---
+        const summarizeBtn = document.getElementById('btn-header-summarize'); 
+        const summaryModalEl = document.getElementById('summaryModal');
+        const runAiBtn = document.getElementById('btn-run-ai');
 
-        // --- 1. GENERAL UI LOGIC ---
-        flatpickr(".flatpickr-input", { enableTime: true, dateFormat: "Y-m-d H:i", time_24hr: true });
-
-        // --- 2. CHAT LOGIC (IMPORTANT: CONNECTS TO ROOM) ---
-        document.addEventListener('DOMContentLoaded', (event) => {
+        if (summarizeBtn && summaryModalEl) {
+            const summaryModal = new bootstrap.Modal(summaryModalEl);
             
-            // AI Summary Handler
-            const summarizeBtn = document.getElementById('btn-summarize');
-            const summaryModalEl = document.getElementById('summaryModal');
-            if (summarizeBtn && summaryModalEl) {
-                const summaryModal = new bootstrap.Modal(summaryModalEl);
-                summarizeBtn.addEventListener('click', function() {
-                    document.getElementById('summary-loading').style.display = 'block';
-                    document.getElementById('summary-content').style.display = 'none';
-                    summaryModal.show();
-                    fetch(`/chat/summary/{{ room.id }}`).then(r => r.json()).then(data => {
-                        document.getElementById('summary-loading').style.display = 'none';
-                        document.getElementById('summary-content').style.display = 'block';
-                                
-                        // Phần ngắn (Text thường)
-                        document.getElementById('summary-short-text').innerText = data.short || "Error";
-                                
-                        // Phần chi tiết (Markdown -> HTML)
-                        // Kiểm tra xem thư viện marked đã tải chưa, nếu chưa thì hiện text thô
-                        if (typeof marked !== 'undefined' && data.full) {
-                            document.getElementById('summary-full-text').innerHTML = marked.parse(data.full);
-                        } else {
-                            document.getElementById('summary-full-text').innerText = data.full || "Error";
-                        }
-                        
-                    }).catch(e => { console.error(e); });
+            // 1. Mở modal nhưng chưa chạy ngay
+            summarizeBtn.addEventListener('click', function() {
+                document.getElementById('summary-content').style.display = 'none';
+                document.getElementById('summary-loading').style.display = 'none';
+                document.getElementById('start-btn-container').style.display = 'block'; 
+                summaryModal.show();
+            });
+
+            // 2. Xử lý khi bấm nút "Bắt đầu phân tích"
+            runAiBtn.addEventListener('click', function() {
+                const mode = document.querySelector('input[name="ai_mode"]:checked').value;
+                
+                document.getElementById('start-btn-container').style.display = 'none';
+                document.getElementById('summary-loading').style.display = 'block'; 
+                document.getElementById('summary-content').style.display = 'none';
+
+                fetch(`/chat/summary/{{ room.id }}?mode=${mode}`).then(r => r.json()).then(data => {
+                    document.getElementById('summary-loading').style.display = 'none';
+                    document.getElementById('summary-content').style.display = 'block';
+                    document.getElementById('start-btn-container').style.display = 'block';
+                            
+                    document.getElementById('summary-short-text').innerText = data.short || "";
+                            
+                    if (typeof marked !== 'undefined' && data.full) {
+                        document.getElementById('summary-full-text').innerHTML = marked.parse(data.full);
+                    } else {
+                        document.getElementById('summary-full-text').innerText = data.full || "Error";
+                    }
+                }).catch(e => { 
+                    console.error(e);
+                    document.getElementById('summary-loading').style.display = 'none';
+                    document.getElementById('start-btn-container').style.display = 'block';
+                });
+            });
+        }
+        // --- END LOGIC AI RECAP ---
+
+        var socket = io();
+        const roomName = '{{ room.name }}';
+        const currentUsername = '{{ current_user.username }}';
+        const messageContainer = document.getElementById('messages');
+        const messageInput = document.getElementById('message-input');
+        const typingStatus = document.getElementById('typing-status');
+        let typingTimer;
+
+        function scrollToBottom() { messageContainer.scrollTop = messageContainer.scrollHeight; }
+        
+        // [FIX] Tự động cuộn xuống khi mới vào trang
+        scrollToBottom();
+
+        function addMessage(data) {
+            let isSelf = data.username === currentUsername;
+            let bubbleClass = isSelf ? 'message-self' : 'message-other';
+            const msgDiv = document.createElement('div');
+            msgDiv.className = `message-bubble ${bubbleClass}`;
+            msgDiv.innerHTML = `<strong>${isSelf ? 'You' : data.username}</strong>: ${data.msg}`;
+            messageContainer.appendChild(msgDiv);
+            scrollToBottom();
+        }
+
+        socket.on('connect', () => { socket.emit('join', { 'room': roomName }); });
+        socket.on('load_history', msgs => { messageContainer.innerHTML=''; msgs.forEach(addMessage); });
+        socket.on('receive_message', data => { addMessage(data); typingStatus.textContent = ''; });
+        socket.on('status', data => { messageContainer.innerHTML += `<div class="text-center small text-muted"><em>${data.msg}</em></div>`; });
+        socket.on('user_list', data => {
+             const c = document.getElementById('user-list-container'); c.innerHTML = '';
+             document.getElementById('user-count').textContent = data.online.length + data.offline.length;
+             data.online.forEach(u => c.innerHTML += `<div class="member-item"><div class="member-avatar">${u[0].toUpperCase()}<span class="status-dot status-online"></span></div><div class="small">${u}</div></div>`);
+             data.offline.forEach(u => c.innerHTML += `<div class="member-item"><div class="member-avatar">${u[0].toUpperCase()}<span class="status-dot status-offline"></span></div><div class="small">${u}</div></div>`);
+        });
+
+        document.getElementById('chat-form').addEventListener('submit', e => {
+            e.preventDefault(); 
+            let msg = messageInput.value.trim();
+            if (msg) { socket.emit('send_message', { 'msg': msg, 'room': roomName }); messageInput.value = ''; }
+        });
+        
+        messageInput.addEventListener('input', () => {
+            socket.emit('typing', { room: roomName });
+            clearTimeout(typingTimer);
+            typingTimer = setTimeout(() => socket.emit('stopped_typing', { room: roomName }), 1000);
+        });
+        socket.on('typing_status', d => typingStatus.textContent = d.isTyping ? `${d.username} is typing...` : '');
+    });
+
+    // --- 2. MAP LOGIC (Tích hợp MapManager) ---
+    class MapManager {
+        constructor() {
+            this.config = JSON.parse(document.getElementById('map-config').textContent);
+            this.map = null;
+            this.layers = { route: null, markers: [] };
+            this.searchTimeout = null;
+            this.transportMode = 'car';
+            this.activeInput = 'main'; 
+            this.locations = { start: null, end: null };
+            this.currentSelection = null;
+            this.userLocation = null;
+
+            this.dom = {
+                searchBar: document.getElementById('floating-search-bar'),
+                sidebar: document.getElementById('map-sidebar-panel'),
+                bottomCard: document.getElementById('bottom-card'),
+                results: document.getElementById('search-results'),
+                routePanel: document.getElementById('route-panel-content'),
+                inputs: {
+                    main: document.getElementById('main-search-input'),
+                    start: document.getElementById('input-start'),
+                    end: document.getElementById('input-end')
+                },
+                infoName: document.getElementById('info-name'),
+                infoAddr: document.getElementById('info-addr'),
+                btnCardRoute: document.getElementById('btn-card-directions')
+            };
+            
+            // Không init ngay mà chờ Tab Show
+        }
+
+        initMap() {
+            if(this.map) return; // Đã init rồi thì thôi
+            
+            // [OSM] Init Map
+            this.map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 13);
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                maxZoom: 19, attribution: '© OpenStreetMap'
+            }).addTo(this.map);
+            L.control.zoom({ position: 'bottomright' }).addTo(this.map);
+
+            this.preloadUserLocation();
+            this.setupListeners();
+            this.map.on('click', (e) => this.handleMapClick(e));
+        }
+
+        preloadUserLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(pos => {
+                    this.userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: "Your Location", isUser: true };
+                    L.circleMarker([this.userLocation.lat, this.userLocation.lon], {
+                        radius: 8, fillColor: "#4285F4", color: "#fff", weight: 2, opacity: 1, fillOpacity: 1
+                    }).addTo(this.map);
                 });
             }
+        }
 
-            // Socket.IO Connection
-            var socket = io();
-            const roomName = '{{ room.name }}';
-            const currentUsername = '{{ current_user.username }}';
-            const messageContainer = document.getElementById('messages');
-            const messageInput = document.getElementById('message-input');
-            const typingStatus = document.getElementById('typing-status');
-            const emojiPicker = document.querySelector('emoji-picker');
-            let typingTimer;
-
-            function scrollToBottom() { messageContainer.scrollTop = messageContainer.scrollHeight; }
-            function isImageUrl(url) { return(url.match(/\.(jpeg|jpg|gif|png)$/) != null); }
-
-            // Thêm tin nhắn vào giao diện
-            function addMessage(data) {
-                let isSelf = data.username === currentUsername;
-                let bubbleClass = isSelf ? 'message-self' : 'message-other';
-                let content = isImageUrl(data.msg) ? `<img src="${data.msg}" style="max-width:100%; border-radius:5px;">` : data.msg;
-                
-                const msgDiv = document.createElement('div');
-                msgDiv.className = `message-bubble ${bubbleClass}`;
-                msgDiv.innerHTML = `
-                    <div class="message-info">
-                        <strong>${isSelf ? 'You' : data.username}</strong> 
-                        <small class="ms-1">${data.timestamp || ''}</small>
-                    </div>
-                    <div>${content}</div>
-                `;
-                messageContainer.appendChild(msgDiv);
-                scrollToBottom();
-            }
-
-            // JOIN ROOM (Quan trọng: Không có dòng này chat sẽ không chạy trong Room)
-            socket.on('connect', () => {
-                console.log("Connected to server, joining room:", roomName);
-                socket.emit('join', { 'room': roomName });
-            });
-
-            socket.on('load_history', msgs => { messageContainer.innerHTML=''; msgs.forEach(addMessage); });
-            socket.on('receive_message', data => { addMessage(data); typingStatus.textContent = ''; });
-            socket.on('status', data => { 
-                const div = document.createElement('div'); 
-                div.className = 'text-center small text-muted my-1'; 
-                div.innerHTML = `<em>${data.msg}</em>`; 
-                messageContainer.appendChild(div); 
-            });
-
-            // Handle Send
-            document.getElementById('chat-form').addEventListener('submit', e => {
-                e.preventDefault(); 
-                let msg = messageInput.value.trim();
-                if (msg) { 
-                    // Gửi tin kèm roomName
-                    socket.emit('send_message', { 'msg': msg, 'room': roomName }); 
-                    socket.emit('stopped_typing', { room: roomName }); 
-                    messageInput.value = ''; 
-                    document.getElementById('emoji-picker').style.display = 'none';
-                }
-            });
-
-            // Handle Typing & Emoji
-            document.getElementById('emoji-btn').addEventListener('click', () => { 
-                const picker = document.getElementById('emoji-picker');
-                picker.style.display = (picker.style.display === 'none') ? 'block' : 'none'; 
-            });
-            emojiPicker.addEventListener('emoji-click', e => { messageInput.value += e.detail.unicode; });
+        setupListeners() {
+            document.getElementById('btn-open-routes').onclick = () => this.setMode('route');
+            document.getElementById('btn-close-sidebar').onclick = () => this.setMode('search');
             
-            messageInput.addEventListener('input', () => {
-                clearTimeout(typingTimer); socket.emit('typing', { room: roomName });
-                typingTimer = setTimeout(() => { socket.emit('stopped_typing', { room: roomName }); }, 2000);
-            });
-            socket.on('typing_status', (data) => { typingStatus.textContent = data.isTyping ? `${data.username} is typing...` : ''; });
+            this.dom.btnCardRoute.onclick = () => {
+                if (this.currentSelection) {
+                    this.setMode('route');
+                    this.selectLocation(this.currentSelection, 'end');
+                    this.dom.inputs.start.focus();
+                }
+            };
 
-            // User List Update
-            socket.on('user_list', data => {
-                const container = document.getElementById('user-list-container');
-                document.getElementById('user-count').textContent = data.total_count || (data.online.length + data.offline.length);
-                container.innerHTML = '';
-                
-                const createList = (title, users, isOnline) => {
-                    if (!users || users.length === 0) return;
-                    const label = document.createElement('small');
-                    label.className = 'text-muted fw-bold text-uppercase mt-2 d-block';
-                    label.style.fontSize = '0.7rem'; label.innerText = title;
-                    container.appendChild(label);
-                    const ul = document.createElement('ul'); ul.className = 'list-group list-group-flush small mb-2';
-                    users.forEach(u => {
-                        const li = document.createElement('li'); li.className = 'list-group-item px-0 py-1 bg-transparent border-0';
-                        li.innerHTML = `<span style="height:8px;width:8px;background:${isOnline?'#28a745':'#6c757d'};border-radius:50%;display:inline-block;margin-right:6px;"></span>${u}`;
-                        ul.appendChild(li);
-                    });
-                    container.appendChild(ul);
+            ['main', 'start', 'end'].forEach(key => {
+                const input = this.dom.inputs[key];
+                input.addEventListener('focus', () => {
+                    this.activeInput = key;
+                    if (input.value.trim() === '') this.renderDefaultSuggestions(); 
+                });
+                input.addEventListener('input', () => {
+                    if (input.value.trim() === '') this.renderDefaultSuggestions();
+                    else {
+                        clearTimeout(this.searchTimeout);
+                        this.searchTimeout = setTimeout(() => this.performSearch(input.value), 400);
+                    }
+                });
+            });
+
+            document.getElementById('btn-trigger-search').onclick = () => this.performSearch(this.dom.inputs.main.value);
+
+            const modeBtns = document.querySelectorAll('.mode-btn');
+            modeBtns.forEach(btn => {
+                btn.onclick = () => {
+                    modeBtns.forEach(b => b.classList.remove('active'));
+                    btn.classList.add('active');
+                    this.transportMode = btn.getAttribute('data-mode');
+                    if (this.locations.start && this.locations.end) this.calculateRoute();
                 };
-                createList('Online', data.online, true);
-                createList('Offline', data.offline, false);
-            });
-        });
-
-        // --- 3. FINANCE GRAPH ---
-        let networkInstance = null;
-        function loadGraph() {
-            fetch("{{ url_for('finance.api_finance_graph') }}?room_id={{ room.id }}").then(r=>r.json()).then(data => {
-                var nodes = new vis.DataSet(data.nodes);
-                var edges = new vis.DataSet(data.edges.map(e => ({from: e.from, to: e.to, label: e.label, arrows: 'to', color: {color: '#dc3545'}, width: 2})));
-                var container = document.getElementById('finance-network');
-                if(networkInstance) networkInstance.setData({nodes, edges});
-                else networkInstance = new vis.Network(container, {nodes, edges}, {nodes: {font:{size:16}, borderWidth:2, color:{background:'#fff', border:'#dc3545'}}, physics:{stabilization:false}});
             });
         }
-        document.getElementById('finance-tab').addEventListener('shown.bs.tab', loadGraph);
-        document.getElementById('switchOutside').addEventListener('change', function() {
-            document.getElementById('memberInput').style.display = this.checked ? 'none' : 'block';
-            document.getElementById('outsiderInput').style.display = this.checked ? 'block' : 'none';
-        });
 
-        // --- 4. WEATHER LOGIC ---
-        function handleSearch() {
-            const q = document.getElementById('weather-search-input').value.trim();
-            if(!q) return;
-            fetch("{{ url_for('weather.search_city') }}?q="+encodeURIComponent(q)).then(r=>r.json()).then(data=>{
-                const list = document.getElementById('search-results-list'); list.innerHTML=''; list.style.display='block';
-                if(data.length){ data.forEach(i=>{ const a=document.createElement('a'); a.className='list-group-item list-group-item-action'; a.innerHTML=`<strong>${i.name}</strong>`; a.onclick=()=>{ selectLoc(i.lat,i.lon,i.name); }; list.appendChild(a); }); }
-                else { list.innerHTML='<div class="list-group-item text-muted">Not found</div>'; }
-            });
+        renderDefaultSuggestions() {
+            this.dom.results.innerHTML = '';
+            this.dom.results.style.display = 'block';
+            const myLoc = document.createElement('div');
+            myLoc.className = 'result-item';
+            myLoc.innerHTML = `<div style="background: #e8f0fe; padding: 8px; border-radius: 50%; margin-right: 12px;"><i class="bi bi-cursor-fill" style="color:#1a73e8;"></i></div><span class="result-name" style="color: #1a73e8; font-weight: 500;">Your Location</span>`;
+            myLoc.onclick = () => {
+                if (this.userLocation) this.selectLocation(this.userLocation, this.activeInput);
+                else alert("Location permission needed.");
+            };
+            this.dom.results.appendChild(myLoc);
         }
-        function selectLoc(lat,lon,name) {
-            document.getElementById('weather-search-input').value=name; document.getElementById('search-results-list').style.display='none';
-            document.getElementById('weather-content').style.display='none'; document.getElementById('weather-loading').style.display='block';
-            fetch(`{{ url_for('weather.get_forecast') }}?lat=${lat}&lon=${lon}&name=${encodeURIComponent(name)}`).then(r=>r.json()).then(d=>{
-                if(d.error) throw new Error(d.error);
-                document.getElementById('w-location').innerText=d.location_name; 
-                document.getElementById('w-temp').innerText=d.current_weather.temperature;
-                document.getElementById('w-desc').innerText=d.current_weather.weather_desc; 
-                document.getElementById('w-precip').innerText=d.current_weather.precipitation_sum;
-                document.getElementById('w-wind').innerText=d.current_weather.wind_max_kmh;
 
-                // --- LOGIC AQI MỚI ---
-                const aqiEl = document.getElementById('w-aqi');
-                if (d.current_weather.aqi_val !== undefined) {
-                    aqiEl.style.display = 'inline-block';
-                    aqiEl.style.backgroundColor = d.current_weather.aqi_bg;
-                    aqiEl.style.color = d.current_weather.aqi_text;
-                    // UPDATED: Dùng innerHTML để chèn icon đẹp hơn
-                    aqiEl.innerHTML = `<span class="me-2 fs-5">🍃</span> AQI ${d.current_weather.aqi_val}`;
-                } else {
-                    aqiEl.style.display = 'none';
+        async handleMapClick(e) {
+            if (this.mode === 'route') return;
+            const { lat, lng } = e.latlng;
+            this.showBottomCard(lat, lng, "Dropped Pin", "Fetching...");
+            try {
+                const res = await fetch(`${this.config.urls.reverse}?lat=${lat}&lon=${lng}`);
+                const data = await res.json();
+                const addr = data.display_name || "Unknown address";
+                this.showBottomCard(lat, lng, addr.split(',')[0], addr);
+            } catch (err) { console.error(err); }
+        }
+
+        showBottomCard(lat, lng, name, addr) {
+            this.currentSelection = { lat, lon: lng, name };
+            this.clearMarkers('search');
+            const marker = L.marker([lat, lng]).addTo(this.map);
+            this.layers.markers.push({ type: 'search', obj: marker });
+            this.map.flyTo([lat, lng], 16);
+            this.dom.infoName.innerText = name;
+            this.dom.infoAddr.innerText = addr;
+            this.dom.bottomCard.classList.add('visible');
+            this.dom.results.style.display = 'none';
+        }
+
+        setMode(mode) {
+            this.mode = mode;
+            if (mode === 'route') {
+                this.dom.searchBar.style.opacity = '0'; 
+                this.dom.searchBar.style.pointerEvents = 'none'; 
+                this.dom.bottomCard.classList.remove('visible'); 
+                this.dom.sidebar.classList.add('active');
+                if (this.dom.inputs.main.value && this.currentSelection && !this.locations.end) {
+                    this.selectLocation(this.currentSelection, 'end');
                 }
-                // ---------------------
-
-                // UPDATED: Render thẻ dự báo to đẹp hơn
-                const fc = document.getElementById('forecast-container'); fc.innerHTML='';
-                if(d.hourly_forecast) d.hourly_forecast.forEach(h=>{ 
-                    // Logic chọn icon đơn giản dựa trên mô tả
-                    let icon = '⛅';
-                    let desc = h.weather_desc || '';
-                    if(desc.includes('Mưa')) icon = '🌧️';
-                    else if(desc.includes('Nắng') || desc.includes('Quang')) icon = '☀️';
-                    else if(desc.includes('Mây')) icon = '☁️';
-
-                    fc.innerHTML += `
-                    <div class="col-3 col-md-2 px-2 mb-2" style="min-width: 130px;">
-                        <div class="card h-100 border-0 shadow text-center py-4" style="background-color: #ffffff; border-radius: 16px;">
-                            <div class="text-secondary fw-bold mb-1">${h.hour}</div>
-                            <div class="my-2" style="font-size: 3rem;">${icon}</div>
-                            <div class="fw-bolder text-dark" style="font-size: 1.5rem;">${h.temp}°C</div>
-                            <div class="text-muted text-truncate px-2 mt-1" style="font-size: 0.85rem; font-weight: 500;">
-                                ${h.weather_desc}
-                            </div>
-                        </div>
-                    </div>`; 
-                });
-                document.getElementById('weather-loading').style.display='none'; document.getElementById('weather-content').style.display='block';
-            }).catch(e=>{ document.getElementById('weather-loading').style.display='none'; document.getElementById('weather-error').innerText=e.message; document.getElementById('weather-error').style.display='block'; });
+            } else {
+                this.dom.searchBar.style.opacity = '1';
+                this.dom.searchBar.style.pointerEvents = 'auto';
+                this.dom.sidebar.classList.remove('active');
+                this.clearRoute();
+            }
         }
-        document.getElementById('weather-tab').addEventListener('shown.bs.tab', ()=>{ loadWeatherData(); }); // Load default
-        function loadWeatherData() { selectLoc(10.762, 106.660, "Hồ Chí Minh, VN"); } // Default func
+
+        async performSearch(query) {
+            if (!query || query.length < 2) { this.dom.results.style.display = 'none'; return; }
+            try {
+                const res = await fetch(`${this.config.urls.search}?query=${encodeURIComponent(query)}`);
+                const data = await res.json();
+                this.renderResults(data);
+            } catch (e) { console.error(e); }
+        }
+
+        renderResults(data) {
+            this.dom.results.innerHTML = '';
+            this.dom.results.style.display = 'block';
+            data.forEach(place => {
+                const item = document.createElement('div');
+                item.className = 'result-item';
+                item.innerHTML = `<i class="bi bi-geo-alt result-icon"></i><div class="result-text"><span class="result-name">${place.display_name.split(',')[0]}</span><span class="result-addr" style="font-size:11px; display:block;">${place.display_name}</span></div>`;
+                item.onclick = () => {
+                    const loc = { lat: parseFloat(place.lat), lon: parseFloat(place.lon), name: place.display_name.split(',')[0] };
+                    if (this.activeInput === 'main') {
+                        this.showBottomCard(loc.lat, loc.lon, loc.name, place.display_name);
+                        this.dom.inputs.main.value = loc.name;
+                    } else {
+                        this.selectLocation(loc, this.activeInput);
+                    }
+                };
+                this.dom.results.appendChild(item);
+            });
+        }
+
+        selectLocation(loc, inputType) {
+            this.dom.results.style.display = 'none';
+            this.dom.inputs[inputType].value = loc.name;
+            this.locations[inputType] = loc;
+            if (!loc.isUser) {
+                this.clearMarkers(inputType);
+                const marker = L.marker([loc.lat, loc.lon]).addTo(this.map);
+                this.layers.markers.push({ type: inputType, obj: marker });
+            }
+            if (this.locations.start && this.locations.end) this.calculateRoute();
+        }
+        
+        clearMarkers(type) {
+            this.layers.markers = this.layers.markers.filter(m => {
+                if (m.type === type) { this.map.removeLayer(m.obj); return false; }
+                return true;
+            });
+        }
+
+        async calculateRoute() {
+            const p1 = `${this.locations.start.lat},${this.locations.start.lon}`;
+            const p2 = `${this.locations.end.lat},${this.locations.end.lon}`;
+            this.dom.routePanel.innerHTML = '<div class="p-4 text-center text-muted">Calculating route...</div>';
+            try {
+                const url = `${this.config.urls.route}?point1=${p1}&point2=${p2}&vehicle=${this.transportMode}`;
+                const res = await fetch(url);
+                const data = await res.json();
+                if (data.routes && data.routes[0]) {
+                    this.drawRoute(data.routes[0].geometry); 
+                    this.renderInstructions(data.routes[0]);
+                } else this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">No route found.</div>';
+            } catch (e) { this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">Error calculating route.</div>'; }
+        }
+
+        renderInstructions(route) {
+            const dist = (route.distance / 1000).toFixed(1); 
+            const time = Math.round(route.duration / 60); 
+            let html = `<div style="padding:16px; background:#f8f9fa; border-bottom:1px solid #e8eaed;"><span style="font-size:24px; color:#188038; font-weight:500;">${time} min</span><span style="color:#5f6368; margin-left:8px;">(${dist} km)</span></div>`;
+            route.legs[0].steps.forEach(step => {
+                html += `<div style="padding:12px 16px; border-bottom:1px solid #f1f3f4; display:flex; gap:12px;"><i class="bi bi-arrow-right" style="color:#5f6368;"></i><div><div style="font-size:14px;">${step.maneuver.type} ${step.name || ''}</div><div style="font-size:12px; color:#70757a;">${step.distance.toFixed(0)}m</div></div></div>`;
+            });
+            this.dom.routePanel.innerHTML = html;
+        }
+
+        drawRoute(geometry) {
+            if (this.layers.route) this.map.removeLayer(this.layers.route);
+            this.layers.route = L.geoJSON(geometry, { style: { color: '#1a73e8', weight: 6, opacity: 0.8 } }).addTo(this.map);
+            this.map.fitBounds(this.layers.route.getBounds(), { padding: [50, 50] });
+        }
+
+        clearRoute() {
+            if (this.layers.route) { this.map.removeLayer(this.layers.route); this.layers.route = null; }
+            this.clearMarkers('start'); this.clearMarkers('end');
+            this.locations = { start: null, end: null };
+            this.dom.inputs.start.value = ''; this.dom.inputs.end.value = '';
+            this.dom.routePanel.innerHTML = '<div style="padding:30px; text-align:center;"><p>Select destination.</p></div>';
+        }
+    }
+
+    // --- 3. INIT MAP ON TAB CHANGE (Fix Leaflet Gray Box) ---
+    let mapManager = null;
+    const mapTabBtn = document.getElementById('map-tab');
+    
+    mapTabBtn.addEventListener('shown.bs.tab', function (event) {
+        if (!mapManager) {
+            mapManager = new MapManager();
+            mapManager.initMap();
+        } else {
+            // Cực kỳ quan trọng: Báo cho Leaflet biết kích thước div đã thay đổi (từ hidden -> visible)
+            setTimeout(() => { mapManager.map.invalidateSize(); }, 100);
+        }
+    });
+
     </script>
 {% endblock %}

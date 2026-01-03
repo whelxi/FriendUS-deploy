@@ -105,15 +105,12 @@ def on_request_ai_plan(data):
 
 @socketio.on('save_ai_plan')
 def on_save_ai_plan(data):
-    """Lưu kế hoạch vào Database"""
+    """Lưu kế hoạch vào Database (Đã fix lỗi ngày tháng)"""
     room_id = data.get('room_id')
     plan_steps = data.get('plan_steps', [])
+    plan_date_str = data.get('plan_date')  # <--- [FIX] Nhận ngày từ Client gửi lên
 
-    # --- THÊM LOG ĐỂ CHECK DATA NHẬN ĐƯỢC ---
-    print(f"\n\033[96m--- [SAVING PLAN TO DB] Room: {room_id} ---\033[0m")
-    for idx, step in enumerate(plan_steps):
-        print(f"   Step {idx+1}: Name='{step['place']['name']}' | Address='{step['place']['address']}'")
-    # -----------------------------------------
+    print(f"\n\033[96m--- [SAVING PLAN] Room: {room_id} | Date: {plan_date_str} ---\033[0m")
 
     if not plan_steps:
         return
@@ -123,26 +120,48 @@ def on_save_ai_plan(data):
         if not room:
             return
 
+        # 1. Xác định ngày gốc (Base Date) từ input của user
+        # Nếu không có hoặc lỗi, mới fallback về hôm nay
+        base_date_str = datetime.now().strftime('%Y-%m-%d')
+        if plan_date_str:
+            base_date_str = plan_date_str
+
         for i, step in enumerate(plan_steps):
-            # Ưu tiên lấy tên địa điểm tìm được, nếu fallback thì lấy intent
+            # Xử lý tên hoạt động
             place_name = step['place']['name']
-            if "Địa điểm:" in place_name and "Chưa xác định" in step['place']['address']:
-                 # Nếu là fallback place, ta đặt tên đẹp hơn chút
-                 act_name = f"Hoạt động {i+1}"
+            if "Địa điểm:" in place_name or "AI" in place_name:
+                 act_name = step.get('intent', f"Hoạt động {i+1}")
             else:
                  act_name = place_name
 
-            # Parse thời gian full datetime từ planner engine gửi về
-            # Nếu planner engine chỉ gửi giờ, phải ghép với ngày hiện tại (hoặc ngày mai)
+            # 2. Xử lý thời gian AN TOÀN (Robust Time Parsing)
             time_info = step['time']
+            start_raw = time_info.get('start', '09:00').strip()
+            end_raw = time_info.get('end', '10:00').strip()
+
+            def parse_time_safe(time_str, base_date_s):
+                """Hàm phụ trợ: Ghép ngày đã chọn với giờ, chấp nhận nhiều định dạng"""
+                # Các định dạng giờ AI có thể trả về: 09:00, 9:00, 9h30, 09:00:00
+                formats = ['%H:%M', '%H:%M:%S', '%Hh%M', '%Hh']
+                for fmt in formats:
+                    try:
+                        t = datetime.strptime(time_str, fmt).time()
+                        return datetime.strptime(f"{base_date_s} {t.strftime('%H:%M:%S')}", '%Y-%m-%d %H:%M:%S')
+                    except ValueError:
+                        continue
+                # Fallback cùng đường: Trả về 00:00 của ngày đó
+                return datetime.strptime(f"{base_date_s} 00:00:00", '%Y-%m-%d %H:%M:%S')
+
+            # Nếu có full datetime từ engine thì dùng, không thì parse thủ công
             if 'start_full' in time_info:
-                start_dt = datetime.strptime(time_info['start_full'], '%Y-%m-%d %H:%M:%S')
-                end_dt = datetime.strptime(time_info['end_full'], '%Y-%m-%d %H:%M:%S')
+                # Lưu ý: Engine trả về start_full dựa trên ngày hiện tại lúc chạy
+                # Nên tốt nhất ta vẫn nên dùng giờ + ngày user chọn (base_date_str)
+                # để đảm bảo đúng ngày user muốn đi.
+                start_dt = parse_time_safe(start_raw, base_date_str)
+                end_dt = parse_time_safe(end_raw, base_date_str)
             else:
-                # Fallback logic cũ
-                today_str = datetime.now().strftime('%Y-%m-%d')
-                start_dt = datetime.strptime(f"{today_str} {time_info['start']}", '%Y-%m-%d %H:%M')
-                end_dt = datetime.strptime(f"{today_str} {time_info['end']}", '%Y-%m-%d %H:%M')
+                start_dt = parse_time_safe(start_raw, base_date_str)
+                end_dt = parse_time_safe(end_raw, base_date_str)
 
             new_act = Activity(
                 name=act_name,
@@ -154,19 +173,18 @@ def on_save_ai_plan(data):
                 room_id=room.id
             )
             db.session.add(new_act)
-            print(f"   -> Added to Session: {new_act.name}") # Log thêm dòng này
+            print(f"   -> Added: {new_act.name} ({start_dt} - {end_dt})")
         
         db.session.commit()
         print("   -> COMMIT SUCCESS!")
         
-        # Bắn event báo thành công -> Client reload trang
         socketio.emit('plan_saved_success', {'room_id': room_id}, room=f"planner_room_{room_id}")
         
     except Exception as e:
         db.session.rollback()
         print(f"Save DB Error: {e}")
         traceback.print_exc()
-        socketio.emit('plan_error', {'message': 'Lỗi lưu dữ liệu.'}, room=f"planner_room_{room_id}")
+        socketio.emit('plan_error', {'message': f'Lỗi lưu dữ liệu: {str(e)}'}, room=f"planner_room_{room_id}")
 
 # =========================================================
 # HTTP ROUTES
