@@ -1,27 +1,33 @@
-# Sử dụng bản Python gọn nhẹ để tiết kiệm dung lượng
-FROM python:3.10-slim
+# Sử dụng Python 3.11 để khớp với render.yaml của bạn
+FROM python:3.11-slim
 
-# Cài đặt các thư viện hệ thống cần thiết (cho gevent và các thư viện C)
-RUN apt-get update && apt-get install -y \
+# Thiết lập các biến môi trường để Python chạy ổn định trong Docker
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
+ENV PORT=10000
+
+# Cài đặt thư viện hệ thống cần thiết (giảm thiểu để nhẹ image)
+RUN apt-get update && apt-get install -y --no-install-recommends \
     build-essential \
     libpq-dev \
     && rm -rf /var/lib/apt/lists/*
 
-# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# --- TỐI ƯU CACHE: Copy requirements trước ---
+# --- BƯỚC QUAN TRỌNG NHẤT ĐỂ BUILD NHANH ---
+# Chỉ copy requirements trước. Nếu file này không đổi, Render sẽ dùng Cache.
 COPY requirements.txt .
 
-# Cài đặt thư viện (Chỉ chạy lại nếu bạn sửa file requirements.txt)
-# Dùng --no-cache-dir để giảm dung lượng image
-RUN pip install --no-cache-dir -r requirements.txt
+# Cài đặt thư viện (Sử dụng --no-cache-dir để image gọn nhẹ)
+RUN pip install --upgrade pip && \
+    pip install --no-cache-dir -r requirements.txt
 
-# --- Copy toàn bộ mã nguồn vào sau ---
+# --- COPY TOÀN BỘ CODE VÀO SAU ---
 COPY . .
 
-# Mở cổng 10000 (Cổng mặc định của Render)
+# Mở cổng 10000
 EXPOSE 10000
 
-# Lệnh khởi chạy (Dùng gevent như đã thảo luận)
-CMD ["gunicorn", "-k", "gevent", "-w", "1", "--bind", "0.0.0.0:10000", "run:app"]
+# Lệnh khởi chạy tối ưu cho SocketIO + Gunicorn
+# Sử dụng gevent để hỗ trợ kết nối đồng thời tốt hơn
+CMD ["gunicorn", "-k", "gevent", "-w", "1", "--threads", "4", "--bind", "0.0.0.0:10000", "run:app"]

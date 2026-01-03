@@ -1,25 +1,18 @@
 services:
   - type: web
     name: friendus
-    env: python
+    env: docker # Chuyển sang Docker để dùng Dockerfile tối ưu ở trên
     plan: free
-
-    buildCommand: |
-      pip install --upgrade pip
-      pip install -r requirements.txt
-
-    startCommand: >
-      gunicorn run:app
-      --workers 1
-      --threads 4
-      --bind 0.0.0.0:10000
+    region: singapore # Chọn vùng gần VN để load nhanh hơn
 
     envVars:
       - key: PYTHON_VERSION
         value: 3.11.9
-
       - key: FLASK_ENV
         value: production
-
       - key: FLASK_DEBUG
         value: "0"
+      - key: ENABLE_SEED
+        value: "True" # Đổi thành False nếu không muốn reset data mỗi lần deploy
+      - key: TZ
+        value: "Asia/Ho_Chi_Minh"
