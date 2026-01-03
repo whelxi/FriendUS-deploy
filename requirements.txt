@@ -1,6 +1,7 @@
 # ---- Core ----
 Flask==3.0.3
 gunicorn
+gevent
 
 # ---- Flask Extensions ----
 bootstrap-flask

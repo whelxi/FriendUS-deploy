@@ -9,41 +9,43 @@ load_dotenv()
 # Tạo app Flask
 app = create_app()
 
-# --- SETUP DATABASE SEEDING ---
+# ----------------------------------------------------------------
+# CẤU HÌNH AUTO-SEED (Quan trọng: Để ở ngoài để Gunicorn chạy được)
+# ----------------------------------------------------------------
 try:
     from seed_data import seed_database
     HAS_SEED_SCRIPT = True
 except ImportError:
     HAS_SEED_SCRIPT = False
 
+# Kiểm tra logic seed
+# Mặc định ENABLE_SEED là 'True'. Nếu muốn tắt trên Render, bạn vào Environment Variables đặt là 'False'.
+if HAS_SEED_SCRIPT:
+    # Chỉ in log ngăn cách nếu thực sự chạy seed
+    if os.environ.get('ENABLE_SEED', 'True') == 'True':
+        print("----------------------------------------------------------------")
+        print("🌱 [Auto-Seeding] Đang khởi tạo dữ liệu mẫu...")
+        try:
+            seed_database()
+            print("✅ [Auto-Seeding] Thành công!")
+        except Exception as e:
+            print(f"⚠️ [Auto-Seeding] Lỗi: {e}")
+        print("----------------------------------------------------------------")
+    else:
+        print("⏭️ [Auto-Seeding] Bỏ qua (ENABLE_SEED=False)")
+
+# ----------------------------------------------------------------
+# CẤU HÌNH CHẠY LOCAL (Khi bạn chạy: python run.py)
+# ----------------------------------------------------------------
 if __name__ == '__main__':
     print("----------------------------------------------------------------")
     
-    # --- ĐOẠN CODE AUTO SEED ---
-    # Lưu ý: Trên Render, nếu bạn dùng SQLite, dữ liệu sẽ mất sau mỗi lần Deploy
-    # nên việc auto-seed này là CẦN THIẾT nếu bạn muốn có dữ liệu mẫu ngay.
-    if HAS_SEED_SCRIPT:
-        print("🌱 Đang tự động seed dữ liệu mẫu (Auto-seeding)...")
-        try:
-            # Bạn có thể thêm biến môi trường ENABLE_SEED=False trên Render nếu muốn tắt nó
-            if os.environ.get('ENABLE_SEED', 'True') == 'True':
-                seed_database()
-                print("✅ Seed dữ liệu thành công!")
-            else:
-                print("⏭️  Bỏ qua seed do cấu hình ENABLE_SEED=False")
-        except Exception as e:
-            print(f"⚠️  Lỗi khi seed dữ liệu: {e}")
-    else:
-        print("⚠️  Không tìm thấy file seed_data.py, bỏ qua bước seed dữ liệu.")
-    
-    print("----------------------------------------------------------------")
-    
-    # --- QUAN TRỌNG: CẤU HÌNH PORT CHO RENDER ---
-    # Lấy PORT từ biến môi trường Render, nếu không có (chạy local) thì lấy 5000
+    # Lấy PORT từ biến môi trường (Render cấp), mặc định 5000 nếu chạy local
     port = int(os.environ.get("PORT", 5000))
     
-    print(f"🚀 Server is running on port {port}!")
+    print(f"🚀 Server is starting on port {port}...")
     print("----------------------------------------------------------------")
     
-    # Start app
+    # Start app với SocketIO
+    # Lưu ý: allow_unsafe_werkzeug=True hữu ích khi chạy dev nhưng cẩn thận trên prod
     socketio.run(app, host='0.0.0.0', port=port, debug=False, allow_unsafe_werkzeug=True)
