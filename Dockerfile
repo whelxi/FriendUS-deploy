@@ -1,5 +1,5 @@
 # Sử dụng Python 3.11 bản slim để nhẹ nhất có thể (dưới 100MB gốc)
-FROM python:3.11-slim
+FROM python:3.9-slim
 
 # Thiết lập biến môi trường để log hiện ra ngay lập tức và không tạo file .pyc rác
 ENV PYTHONDONTWRITEBYTECODE=1
