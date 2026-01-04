@@ -5,6 +5,8 @@ from app.models import Room, Message, Activity, Constraint, Transaction, User, R
 from app.forms import CreateRoomForm, ActivityForm, ConstraintForm, TransactionForm
 from app.utils import auto_update_user_interest, score_from_matrix_personalized, check_conflicts, UserTagScore
 from app.ai_summary import SeaLionDialogueSystem 
+# [NEW] Import Client để gọi API Hugging Face
+from gradio_client import Client
 import requests
 import json
 import os
