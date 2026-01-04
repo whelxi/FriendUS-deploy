@@ -2,6 +2,7 @@
 Flask==3.0.3
 gunicorn
 eventlet==0.33.3
+dnspython
 
 # ---- Flask Extensions ----
 bootstrap-flask

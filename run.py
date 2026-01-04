@@ -1,3 +1,7 @@
+# [QUAN TRỌNG] Hai dòng này PHẢI nằm trên cùng, trước mọi lệnh import khác
+import eventlet
+eventlet.monkey_patch()
+
 from app import create_app, socketio
 import os
 from dotenv import load_dotenv
