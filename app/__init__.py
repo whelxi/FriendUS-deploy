@@ -19,9 +19,17 @@ def create_app(config_class=Config):
     app = Flask(__name__)
     app.config.from_object(config_class)
 
+    # --- [FIX QUAN TRỌNG] Cấu hình Database Pool ---
+    # Thêm đoạn này để tự động kiểm tra kết nối DB trước khi dùng.
+    # Khắc phục lỗi: "psycopg2.OperationalError: SSL connection has been closed unexpectedly"
+    app.config['SQLALCHEMY_ENGINE_OPTIONS'] = {
+        "pool_pre_ping": True,  # Kiểm tra kết nối "sống" hay "chết" trước khi query
+        "pool_recycle": 300,    # Tái tạo kết nối mỗi 300s (5 phút) để tránh bị server đóng
+    }
+    # -----------------------------------------------
+
     # [MỚI 2] Cấu hình ProxyFix
     # Dòng này cực quan trọng để Flask nhận diện đúng HTTPS trên Render
-    # Nếu thiếu dòng này: Form Tags sẽ không lưu được, Link chuyển hướng bị lỗi http/https
     app.wsgi_app = ProxyFix(
         app.wsgi_app, x_for=1, x_proto=1, x_host=1, x_prefix=1
     )
@@ -32,8 +40,8 @@ def create_app(config_class=Config):
     bootstrap.init_app(app)
     
     # [MỚI 3] Cập nhật init SocketIO
-    # cors_allowed_origins="*": Cho phép kết nối từ mọi nguồn (tránh lỗi 400 Bad Request trên Render)
-    # async_mode='eventlet': Chỉ định rõ worker (khớp với file requirements.txt của bạn)
+    # cors_allowed_origins="*": Cho phép kết nối từ mọi nguồn
+    # async_mode='eventlet': Chỉ định rõ worker
     socketio.init_app(app, cors_allowed_origins="*", async_mode="eventlet")
     
     oauth.init_app(app)
@@ -72,12 +80,15 @@ def create_app(config_class=Config):
     register_socketio_events(socketio)
 
     # Define User Loader
-    from app.models import User, Room
+    from app.models import User
     @login_manager.user_loader
     def load_user(user_id):
         # [MỚI 4] Thêm xử lý lỗi nếu user không tồn tại (tránh crash)
         if user_id is not None:
-            return User.query.get(int(user_id))
+            try:
+                return User.query.get(int(user_id))
+            except Exception:
+                return None
         return None
 
     # Create DB and Populate if empty

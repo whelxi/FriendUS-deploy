@@ -30,7 +30,3 @@ class Config:
     # SeaLion AI
     SEALION_API_KEY = os.environ.get('SEALION_API_KEY') 
     SEALION_BASE_URL = "https://api.sea-lion.ai/v1"
-
-    # Hugging Face AI 
-    # Dùng để gọi model BARTpho gợi ý tin nhắn
-    BARTPHO_TEENCODE = os.environ.get('BARTPHO_TEENCODE')

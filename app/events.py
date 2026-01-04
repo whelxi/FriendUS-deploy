@@ -18,26 +18,29 @@ def broadcast_user_list(room_name):
     Hàm này lấy tất cả thành viên từ DB, so sánh với list online
     để phân loại Online/Offline và gửi về Client.
     """
-    room = Room.query.filter_by(name=room_name).first()
-    if not room:
-        return
+    # [BẢO VỆ] Thêm try-except để tránh sập socket nếu DB mất kết nối tạm thời
+    try:
+        room = Room.query.filter_by(name=room_name).first()
+        if not room:
+            return
 
-    # 1. Lấy tất cả thành viên từ DB
-    all_members = [m.username for m in room.members]
-    
-    # 2. Lấy danh sách đang online từ biến toàn cục
-    online_usernames = get_online_usernames(room_name)
-    
-    # 3. Tính toán offline (có trong DB nhưng không có trong list online)
-    # Lưu ý: Set giúp loại bỏ trùng lặp và tính toán hiệu (difference) nhanh
-    offline_members = list(set(all_members) - set(online_usernames))
-    
-    # Gửi về client object chứa cả 2 danh sách
-    socketio.emit('user_list', {
-        'online': online_usernames,
-        'offline': offline_members,
-        'total_count': len(all_members)
-    }, to=room_name)
+        # 1. Lấy tất cả thành viên từ DB
+        all_members = [m.username for m in room.members]
+        
+        # 2. Lấy danh sách đang online từ biến toàn cục
+        online_usernames = get_online_usernames(room_name)
+        
+        # 3. Tính toán offline (có trong DB nhưng không có trong list online)
+        offline_members = list(set(all_members) - set(online_usernames))
+        
+        # Gửi về client object chứa cả 2 danh sách
+        socketio.emit('user_list', {
+            'online': online_usernames,
+            'offline': offline_members,
+            'total_count': len(all_members)
+        }, to=room_name)
+    except Exception as e:
+        print(f"Error broadcasting user list: {e}")
 
 def register_socketio_events(socketio):
     @socketio.on('connect')
@@ -100,9 +103,18 @@ def register_socketio_events(socketio):
             # [NEW] Cập nhật lại list
             broadcast_user_list(room_name)
 
+    # --- [FIX QUAN TRỌNG] Sửa hàm handle_disconnect ---
+    # Thêm *args để nhận bất kỳ tham số nào (EngineIO thường gửi lý do disconnect)
+    # Khắc phục lỗi: "TypeError: handle_disconnect() takes 0 positional arguments but 1 was given"
     @socketio.on('disconnect')
-    def handle_disconnect():
-        if not current_user.is_authenticated: return
+    def handle_disconnect(*args):
+        # Có thể không truy cập được current_user lúc disconnect nếu session đã chết
+        # Nên dùng try-except hoặc kiểm tra kỹ
+        try:
+            if not current_user.is_authenticated: return
+        except:
+            return # Nếu lỗi truy cập user, thoát luôn
+
         for room_name, users in online_users_in_rooms.items():
             if request.sid in users:
                 username = users.pop(request.sid)
