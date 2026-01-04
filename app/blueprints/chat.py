@@ -8,84 +8,61 @@ from app.ai_summary import SeaLionDialogueSystem
 # [NEW] Import Client để gọi API Hugging Face
 from gradio_client import Client
 import requests
-import json
 import os
 
 chat_bp = Blueprint('chat', __name__)
 
-# --- CẤU HÌNH HUGGING FACE API (Thay thế cho Model Local) ---
-HF_BASE_URL = "https://whelxi-bartpho-teencode.hf.space/gradio_api/call/predict"
+# --- CẤU HÌNH CLIENT HUGGING FACE ---
+HF_SPACE_ID = "Whelxi/bartpho-teencode"
+hf_client = None
 
-def get_hf_token():
+def get_hf_client():
     """
-    Hàm lấy Token từ biến môi trường.
-    Nếu không tìm thấy, có thể trả về None hoặc thông báo lỗi.
+    Khởi tạo kết nối đến Hugging Face Space.
+    Sử dụng Singleton pattern để không phải connect lại mỗi lần gọi request.
     """
-    token = os.getenv("HF_TOKEN")
-    if not token:
-        # Bạn có thể in ra log để debug khi chạy server
-        print("⚠️ Warning: HF_TOKEN is not set in environment variables.")
-    return token
+    global hf_client
+    if hf_client is None:
+        try:
+            print(f"🔄 Đang kết nối đến Hugging Face Space: {HF_SPACE_ID}...")
+            hf_client = Client(HF_SPACE_ID)
+            print("✅ Kết nối Hugging Face API thành công!")
+        except Exception as e:
+            print(f"❌ Lỗi kết nối HF Space: {e}")
+            return None
+    return hf_client
 
 @chat_bp.route('/api/suggest-text', methods=['POST'])
 def suggest_text():
-    """
-    Tính năng gợi ý sửa lỗi teencode sử dụng Hugging Face API (Gradio)
-    Quy trình: POST lấy event_id -> GET stream để lấy kết quả cuối.
-    """
     data = request.json
     input_text = data.get('text', '')
     
     if not input_text:
         return jsonify({'suggestion': ''})
 
-    headers = {
-        "Content-Type": "application/json",
-        "Authorization": f"Bearer {HF_TOKEN}"
-    }
+    # Lấy client (nếu chưa có thì khởi tạo)
+    client = get_hf_client()
+    
+    if not client:
+        return jsonify({'suggestion': ''}) # Fail silently để không crash UI
 
     try:
-        # BƯỚC 1: Gửi Request POST để lấy event_id
-        payload = {"data": [input_text]}
-        resp_post = requests.post(HF_BASE_URL, json=payload, headers=headers, timeout=5)
+        # Gọi API predict theo hướng dẫn của bạn
+        result = client.predict(
+            text=input_text,
+            api_name="/predict"
+        )
         
-        if resp_post.status_code != 200:
-            return jsonify({'suggestion': f'API Error (POST): {resp_post.status_code}'})
-            
-        event_id = resp_post.json().get("event_id")
-        if not event_id:
-            return jsonify({'suggestion': 'Error: No event_id received'})
-
-        # BƯỚC 2: GET theo event_id để lấy kết quả (Streaming)
-        get_url = f"{HF_BASE_URL}/{event_id}"
-        # Sử dụng stream=True để đọc dữ liệu SSE từ Gradio
-        resp_get = requests.get(get_url, headers=headers, stream=True, timeout=10)
+        # API trả về string kết quả trực tiếp
+        suggestion = result if result else ""
         
-        if resp_get.status_code != 200:
-            return jsonify({'suggestion': 'API Error (GET)'})
+        return jsonify({'suggestion': suggestion})
 
-        # Duyệt qua các dòng stream để tìm kết quả cuối cùng
-        for line in resp_get.iter_lines():
-            if line:
-                decoded_line = line.decode('utf-8')
-                if decoded_line.startswith("data:"):
-                    # Parse JSON từ phần sau "data: "
-                    json_str = decoded_line[5:].strip()
-                    try:
-                        result_data = json.loads(json_str)
-                        # Gradio trả về list kết quả, lấy phần tử đầu tiên
-                        if isinstance(result_data, list) and len(result_data) > 0:
-                            return jsonify({'suggestion': result_data[0]})
-                    except json.JSONDecodeError:
-                        continue
-
-        return jsonify({'suggestion': ''})
-
-    except requests.exceptions.RequestException as e:
-        print(f"Hugging Face API Connection Error: {e}")
-        return jsonify({'suggestion': 'API Connection Timeout'})
     except Exception as e:
-        print(f"Suggest Text Error: {e}")
+        print(f"HF API Inference Error: {e}")
+        # Reset client nếu lỗi để lần sau thử connect lại
+        global hf_client
+        hf_client = None
         return jsonify({'suggestion': ''})
 
 @chat_bp.route('/chat/summary/<int:room_id>', methods=['GET'])
