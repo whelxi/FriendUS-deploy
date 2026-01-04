@@ -6,108 +6,84 @@ from app.forms import CreateRoomForm, ActivityForm, ConstraintForm, TransactionF
 from app.utils import auto_update_user_interest, score_from_matrix_personalized, check_conflicts, UserTagScore
 from app.ai_summary import SeaLionDialogueSystem 
 import requests
+import json
 import os
-import torch
-from transformers import AutoTokenizer, AutoModelForSeq2SeqLM
-# [FIX] Cần import PeftModel để chạy Adapter
-from peft import PeftModel 
 
 chat_bp = Blueprint('chat', __name__)
 
-# --- CẤU HÌNH MODEL ---
-# Sử dụng cấu hình giống test.py đã chạy thành công
-BASE_MODEL_ID = "vinai/bartpho-syllable"
-ADAPTER_MODEL_ID = "whelxi/bartpho-teencode" 
+# --- CẤU HÌNH HUGGING FACE API (Thay thế cho Model Local) ---
+HF_BASE_URL = "https://whelxi-bartpho-teencode.hf.space/gradio_api/call/predict"
 
-# Biến global cache
-local_tokenizer = None
-local_model = None
-
-def get_model_and_tokenizer():
+def get_hf_token():
     """
-    Load model chuẩn theo quy trình Peft/LoRA:
-    1. Load Tokenizer
-    2. Load Base Model (BartPho)
-    3. Load Peft Adapter (Teencode)
+    Hàm lấy Token từ biến môi trường.
+    Nếu không tìm thấy, có thể trả về None hoặc thông báo lỗi.
     """
-    global local_tokenizer, local_model
-    
-    if local_model is None:
-        print("🔄 Đang khởi tạo model dịch Teencode (Local)...")
-        device = "cuda" if torch.cuda.is_available() else "cpu"
-        
-        try:
-            # 1. Load Tokenizer (Lấy từ adapter path vẫn ok, hoặc lấy từ base đều được)
-            print(f"⏳ Loading Tokenizer từ {ADAPTER_MODEL_ID}...")
-            local_tokenizer = AutoTokenizer.from_pretrained(ADAPTER_MODEL_ID)
-            
-            # 2. Load Base Model (Bắt buộc phải có cái này trước)
-            print(f"⏳ Loading Base Model từ {BASE_MODEL_ID}...")
-            base_model = AutoModelForSeq2SeqLM.from_pretrained(
-                BASE_MODEL_ID,
-                torch_dtype=torch.float16 if device == "cuda" else torch.float32
-            )
-            
-            # 3. Gắn Adapter vào Base Model
-            print(f"🔗 Đang gắn LoRA Adapter từ {ADAPTER_MODEL_ID}...")
-            local_model = PeftModel.from_pretrained(base_model, ADAPTER_MODEL_ID)
-            
-            # 4. Chuyển sang thiết bị (GPU/CPU)
-            local_model.to(device)
-            local_model.eval() # Chuyển sang chế độ eval
-            
-            print(f"✅ Load model thành công trên thiết bị: {device}")
-            
-        except Exception as e:
-            print(f"❌ Lỗi load model local: {e}")
-            return None, None
-            
-    return local_tokenizer, local_model
+    token = os.getenv("HF_TOKEN")
+    if not token:
+        # Bạn có thể in ra log để debug khi chạy server
+        print("⚠️ Warning: HF_TOKEN is not set in environment variables.")
+    return token
 
 @chat_bp.route('/api/suggest-text', methods=['POST'])
 def suggest_text():
+    """
+    Tính năng gợi ý sửa lỗi teencode sử dụng Hugging Face API (Gradio)
+    Quy trình: POST lấy event_id -> GET stream để lấy kết quả cuối.
+    """
     data = request.json
     input_text = data.get('text', '')
     
     if not input_text:
         return jsonify({'suggestion': ''})
 
-    # Lấy model đã load
-    tokenizer, model = get_model_and_tokenizer()
-    
-    if not model or not tokenizer:
-        return jsonify({'suggestion': 'Lỗi: Không load được model'})
+    headers = {
+        "Content-Type": "application/json",
+        "Authorization": f"Bearer {HF_TOKEN}"
+    }
 
     try:
-        device = model.device
+        # BƯỚC 1: Gửi Request POST để lấy event_id
+        payload = {"data": [input_text]}
+        resp_post = requests.post(HF_BASE_URL, json=payload, headers=headers, timeout=5)
         
-        # 1. Chuẩn bị input (giống hàm normalize_teencode trong test.py)
-        inputs = tokenizer(
-            input_text, 
-            return_tensors="pt", 
-            max_length=128, 
-            truncation=True,
-            padding="max_length" # Thêm padding giống test.py để ổn định
-        ).to(device)
-        
-        # 2. Generate (Sinh văn bản)
-        with torch.no_grad():
-            outputs = model.generate(
-                input_ids=inputs["input_ids"],
-                attention_mask=inputs["attention_mask"],
-                max_length=128,
-                num_beams=4,           
-                early_stopping=True,
-                length_penalty=1.0 
-            )
-        
-        # 3. Decode kết quả
-        suggestion = tokenizer.decode(outputs[0], skip_special_tokens=True)
-        
-        return jsonify({'suggestion': suggestion})
+        if resp_post.status_code != 200:
+            return jsonify({'suggestion': f'API Error (POST): {resp_post.status_code}'})
+            
+        event_id = resp_post.json().get("event_id")
+        if not event_id:
+            return jsonify({'suggestion': 'Error: No event_id received'})
 
+        # BƯỚC 2: GET theo event_id để lấy kết quả (Streaming)
+        get_url = f"{HF_BASE_URL}/{event_id}"
+        # Sử dụng stream=True để đọc dữ liệu SSE từ Gradio
+        resp_get = requests.get(get_url, headers=headers, stream=True, timeout=10)
+        
+        if resp_get.status_code != 200:
+            return jsonify({'suggestion': 'API Error (GET)'})
+
+        # Duyệt qua các dòng stream để tìm kết quả cuối cùng
+        for line in resp_get.iter_lines():
+            if line:
+                decoded_line = line.decode('utf-8')
+                if decoded_line.startswith("data:"):
+                    # Parse JSON từ phần sau "data: "
+                    json_str = decoded_line[5:].strip()
+                    try:
+                        result_data = json.loads(json_str)
+                        # Gradio trả về list kết quả, lấy phần tử đầu tiên
+                        if isinstance(result_data, list) and len(result_data) > 0:
+                            return jsonify({'suggestion': result_data[0]})
+                    except json.JSONDecodeError:
+                        continue
+
+        return jsonify({'suggestion': ''})
+
+    except requests.exceptions.RequestException as e:
+        print(f"Hugging Face API Connection Error: {e}")
+        return jsonify({'suggestion': 'API Connection Timeout'})
     except Exception as e:
-        print(f"Local Inference Error: {e}")
+        print(f"Suggest Text Error: {e}")
         return jsonify({'suggestion': ''})
 
 @chat_bp.route('/chat/summary/<int:room_id>', methods=['GET'])

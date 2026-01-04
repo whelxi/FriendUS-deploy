@@ -3,6 +3,8 @@ Flask==3.0.3
 gunicorn
 eventlet==0.33.3
 dnspython==1.16.0
+gradio_client
+json
 
 # ---- Flask Extensions ----
 bootstrap-flask
