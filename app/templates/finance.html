@@ -1,76 +1,78 @@
-{% extends "layout.html" %}
-{% block content %}
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Finance Module</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <style>
+        body { background-color: #fff; overflow-x: hidden; }
+        .container-fluid { padding: 15px; }
+        /* Style scrollbar cho gọn */
+        ::-webkit-scrollbar { width: 6px; }
+        ::-webkit-scrollbar-thumb { background: #ccc; border-radius: 4px; }
+    </style>
+</head>
+<body>
 
-{% if hide_nav %}
-<style>
-    body { background-color: #fff; overflow-y: auto; }
-    .container { margin-top: 0 !important; padding-top: 10px; }
-</style>
-{% endif %}
-
-<div class="container py-4">
-    <h2><i class="bi bi-cash-coin"></i> Financial Allocation Map</h2>
+<div class="container-fluid">
+    <div class="d-flex justify-content-between align-items-center mb-3">
+        <h4 class="m-0 fw-bold text-primary"><i class="bi bi-wallet2"></i> Quỹ nhóm</h4>
+        <button onclick="loadGraph()" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-clockwise"></i> Refresh Graph</button>
+    </div>
     
-    <div class="row">
-        <div class="col-md-4">
-            <div class="card mb-4 shadow-sm">
-                <div class="card-header bg-primary text-white">Create Transaction</div>
-                <div class="card-body">
-                    <form method="POST" action="{{ url_for('finance.add_room_transaction', room_id=room.id, hide_nav=1 if hide_nav else 0) }}">
+    <div class="row g-3">
+        <div class="col-md-5 col-lg-4">
+            <div class="card mb-3 border-0 shadow-sm bg-light">
+                <div class="card-body p-3">
+                    <h6 class="fw-bold mb-3">Tạo giao dịch</h6>
+                    <form method="POST" action="{{ url_for('finance.add_room_transaction', room_id=room.id) }}">
                         {{ form.hidden_tag() }}
                         
-                        <div class="mb-3">
-                            <label class="form-label fw-bold">Type:</label>
+                        <div class="mb-2">
                             {% for subfield in form.type %}
-                                <div class="form-check">
+                                <div class="form-check form-check-inline">
                                     {{ subfield(class="form-check-input") }}
-                                    {{ subfield.label(class="form-check-label") }}
+                                    {{ subfield.label(class="form-check-label small") }}
                                 </div>
                             {% endfor %}
                         </div>
 
-                        <div class="mb-3">
-                            {{ form.amount.label(class="form-label") }}
-                            {{ form.amount(class="form-control", placeholder="50000") }}
+                        <div class="input-group input-group-sm mb-2">
+                            {{ form.amount(class="form-control", placeholder="Số tiền (VD: 50000)") }}
                         </div>
-                        <div class="mb-3">
-                            {{ form.description.label(class="form-label") }}
-                            {{ form.description(class="form-control") }}
+                        <div class="mb-2">
+                            {{ form.description(class="form-control form-control-sm", placeholder="Nội dung (VD: Ăn trưa)") }}
                         </div>
-                        
-                        <div class="mb-3">
-                            {{ form.receiver.label(class="form-label") }}
-                            {{ form.receiver(class="form-select") }}
+                        <div class="mb-2">
+                            <label class="small text-muted">Người thụ hưởng:</label>
+                            {{ form.receiver(class="form-select form-select-sm") }}
                         </div>
-                        
-                        <br>
-                        {{ form.submit(class="btn btn-success w-100") }}
+                        {{ form.submit(class="btn btn-primary btn-sm w-100") }}
                     </form>
                 </div>
             </div>
 
             {% if pending %}
-            <div class="card border-warning mb-4">
-                <div class="card-header bg-warning text-dark">Confirmation Needed</div>
-                <ul class="list-group list-group-flush">
+            <div class="card border-warning mb-3 shadow-sm">
+                <div class="card-header bg-warning bg-opacity-10 py-2 px-3 small fw-bold text-warning-emphasis">
+                    Chờ xác nhận
+                </div>
+                <ul class="list-group list-group-flush small">
                     {% for p in pending %}
-                    <li class="list-group-item">
-                        <div class="d-flex justify-content-between">
-                            <div>
-                                <strong>{{ p.sender.username }}</strong> 
-                                {% if p.type == 'debt' %} 
-                                    says they <span class="text-danger">OWE</span> you 
-                                {% else %} 
-                                    says they <span class="text-success">PAID</span> you 
-                                {% endif %}
-                                <br>
-                                <span class="fw-bold">{{ "{:,.0f}".format(p.amount) }}</span>
-                                <br><small class="text-muted">{{ p.description }}</small>
-                            </div>
-                            <form action="{{ url_for('finance.confirm_transaction', trans_id=p.id, hide_nav=1 if hide_nav else 0) }}" method="POST">
-                                <button type="submit" class="btn btn-sm btn-outline-success">Confirm</button>
-                            </form>
+                    <li class="list-group-item d-flex justify-content-between align-items-center px-2">
+                        <div>
+                            <strong>{{ p.sender.username }}</strong> 
+                            <span class="{{ 'text-danger' if p.type == 'debt' else 'text-success' }} fw-bold">
+                                {{ 'NỢ' if p.type == 'debt' else 'TRẢ' }}
+                            </span> bạn
+                            <div class="fw-bold">{{ "{:,.0f}".format(p.amount) }}</div>
+                            <div class="text-muted fst-italic" style="font-size: 11px;">{{ p.description }}</div>
                         </div>
+                        <form action="{{ url_for('finance.confirm_transaction', trans_id=p.id) }}" method="POST">
+                            <button type="submit" class="btn btn-sm btn-success py-0 px-2" style="font-size: 11px;">OK</button>
+                        </form>
                     </li>
                     {% endfor %}
                 </ul>
@@ -78,71 +80,61 @@
             {% endif %}
 
             {% if history %}
-            <div class="card mb-4" style="max-height: 400px; overflow-y: auto;">
-                <div class="card-header bg-light fw-bold">Your History</div>
-                <ul class="list-group list-group-flush">
+            <div class="card border-0 shadow-sm">
+                <div class="card-header bg-white py-2 small fw-bold">Lịch sử giao dịch</div>
+                <div class="list-group list-group-flush overflow-auto" style="max-height: 300px;">
                     {% for h in history %}
-                    <li class="list-group-item">
-                        <div class="d-flex justify-content-between align-items-start">
+                    <div class="list-group-item px-2 py-2 small">
+                        <div class="d-flex justify-content-between">
                             <div>
-                                <small class="text-muted">{{ h.timestamp.strftime('%d/%m') }}</small>
-                                {% if h.type == 'debt' %}
-                                    <span class="badge bg-danger ms-1">Debt</span>
-                                {% else %}
-                                    <span class="badge bg-success ms-1">Repay</span>
-                                {% endif %}
-                                
-                                <div class="small fst-italic text-muted">{{ h.description }}</div>
-
-                                {% set partner = h.receiver.username if h.receiver else (h.outsider.name ~ ' (Out)') %}
-                                
-                                {% if h.sender_id == current_user.id %}
-                                    <span>To: <strong>{{ partner }}</strong></span>
-                                {% else %}
-                                    <span>From: <strong>{{ h.sender.username }}</strong></span>
-                                {% endif %}
-                                <div class="fw-bold">{{ "{:,.0f}".format(h.amount) }}</div>
-                            </div>
-
-                            <div class="text-end">
-                                <span class="badge bg-{{ 'primary' if h.status == 'confirmed' else 'warning text-dark' }}">
-                                    {{ h.status }}
+                                <span class="text-muted" style="font-size: 10px;">{{ h.timestamp.strftime('%d/%m') }}</span>
+                                <span class="badge {{ 'bg-danger' if h.type == 'debt' else 'bg-success' }}" style="font-size: 9px;">
+                                    {{ 'Nợ' if h.type == 'debt' else 'Trả' }}
                                 </span>
+                                <span class="fw-bold">{{ "{:,.0f}".format(h.amount) }}</span>
+                                <div class="text-truncate text-muted" style="max-width: 140px; font-size: 11px;">
+                                    {% if h.sender_id == current_user.id %}
+                                        Bạn ➝ <strong>{{ h.receiver.username if h.receiver else h.outsider.name }}</strong>
+                                    {% else %}
+                                        <strong>{{ h.sender.username }}</strong> ➝ Bạn
+                                    {% endif %}
+                                    : {{ h.description }}
+                                </div>
+                            </div>
+                            <div class="text-end">
                                 {% if h.sender_id == current_user.id and h.status == 'pending' %}
-                                    <form action="{{ url_for('finance.delete_transaction', trans_id=h.id, hide_nav=1 if hide_nav else 0) }}" method="POST" class="mt-1">
-                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-2" style="font-size: 10px;">Cancel</button>
+                                    <form action="{{ url_for('finance.delete_transaction', trans_id=h.id) }}" method="POST">
+                                        <button type="submit" class="btn btn-outline-danger btn-sm py-0 px-1" style="font-size: 9px;">Xóa</button>
                                     </form>
+                                {% else %}
+                                    <i class="bi bi-check-circle-fill text-{{ 'primary' if h.status == 'confirmed' else 'warning' }}"></i>
                                 {% endif %}
                             </div>
                         </div>
-                    </li>
+                    </div>
                     {% endfor %}
-                </ul>
+                </div>
             </div>
             {% endif %}
         </div>
 
-        <div class="col-md-8">
-            <div class="card shadow-sm h-100">
-                <div class="card-header bg-dark text-white d-flex justify-content-between">
-                    <span>Debt Network (Arrow points to Creditor)</span>
-                    <button onclick="loadGraph()" class="btn btn-sm btn-light">Refresh</button>
-                </div>
-                <div class="card-body p-0">
-                    <div id="finance-network" style="height: 600px; width: 100%; background-color: #f8f9fa;"></div>
+        <div class="col-md-7 col-lg-8">
+            <div class="card shadow-sm border-0 h-100">
+                <div class="card-body p-0 position-relative">
+                    <div id="finance-network" style="height: 600px; width: 100%; background-color: #f8f9fa; border-radius: 8px;"></div>
+                    <div class="position-absolute bottom-0 start-0 p-2 text-muted small opacity-75">
+                        *Mũi tên hướng về chủ nợ (Người nhận tiền)
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 </div>
-{% endblock %}
 
-{% block scripts %}
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
 <script type="text/javascript" src="https://unpkg.com/vis-network/standalone/umd/vis-network.min.js"></script>
 <script>
-
     function loadGraph() {
-        // [FIX] Đã thêm 'finance.' vào url_for API graph
         fetch("{{ url_for('finance.api_finance_graph', room_id=room.id) }}")
             .then(response => response.json())
             .then(data => {
@@ -153,29 +145,28 @@
                     label: e.label, 
                     arrows: 'to',
                     color: {color: '#dc3545'},
-                    width: 2
+                    width: 2,
+                    font: { align: 'middle', size: 12, background: 'white' }
                 })));
 
                 var container = document.getElementById('finance-network');
                 var dataVis = { nodes: nodes, edges: edges };
                 var options = {
                     nodes: {
-                        font: { size: 16, color: '#343a40' },
+                        shape: 'dot', size: 20,
+                        font: { size: 14, color: '#343a40', face: 'arial' },
                         borderWidth: 2,
-                        color: { background: '#fff', border: '#dc3545' }
-                    },
-                    edges: {
-                        font: { align: 'middle', background: 'white' },
-                        smooth: { type: 'dynamic' }
+                        color: { background: '#fff', border: '#0d6efd', highlight: { background: '#0d6efd', border: '#0d6efd', font: {color: 'white'} } }
                     },
                     physics: {
-                        stabilization: false,
-                        barnesHut: { gravitationalConstant: -3000 }
+                        stabilization: true,
+                        barnesHut: { gravitationalConstant: -2000, springLength: 200 }
                     }
                 };
-                var network = new vis.Network(container, dataVis, options);
+                new vis.Network(container, dataVis, options);
             });
     }
     document.addEventListener('DOMContentLoaded', loadGraph);
 </script>
-{% endblock %}
+</body>
+</html>

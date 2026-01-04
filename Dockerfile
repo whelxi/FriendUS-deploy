@@ -1,33 +1,37 @@
-# Sử dụng Python 3.11 để khớp với render.yaml của bạn
+# Sử dụng Python 3.11 bản slim để nhẹ nhất có thể (dưới 100MB gốc)
 FROM python:3.11-slim
 
-# Thiết lập các biến môi trường để Python chạy ổn định trong Docker
+# Thiết lập biến môi trường để log hiện ra ngay lập tức và không tạo file .pyc rác
 ENV PYTHONDONTWRITEBYTECODE=1
 ENV PYTHONUNBUFFERED=1
-ENV PORT=10000
 
-# Cài đặt thư viện hệ thống cần thiết (giảm thiểu để nhẹ image)
-RUN apt-get update && apt-get install -y --no-install-recommends \
-    build-essential \
-    libpq-dev \
-    && rm -rf /var/lib/apt/lists/*
-
+# Thiết lập thư mục làm việc
 WORKDIR /app
 
-# --- BƯỚC QUAN TRỌNG NHẤT ĐỂ BUILD NHANH ---
-# Chỉ copy requirements trước. Nếu file này không đổi, Render sẽ dùng Cache.
+# [QUAN TRỌNG] Cài đặt các gói hệ thống cần thiết (nếu có)
+# autoremove để dọn dẹp ngay sau khi cài giúp giảm dung lượng ảnh
+RUN apt-get update && apt-get install -y \
+    gcc \
+    && apt-get clean \
+    && rm -rf /var/lib/apt/lists/*
+
+# [CHIẾN THUẬT CACHE] Copy file requirements trước
+# Nếu file này không đổi, Docker sẽ bỏ qua bước RUN pip install bên dưới
 COPY requirements.txt .
 
-# Cài đặt thư viện (Sử dụng --no-cache-dir để image gọn nhẹ)
-RUN pip install --upgrade pip && \
-    pip install --no-cache-dir -r requirements.txt
+# Cài đặt thư viện:
+# 1. Cài PyTorch bản CPU-only (giảm dung lượng từ 2GB -> 200MB)
+# 2. Cài các thư viện còn lại từ requirements.txt
+RUN pip install --no-cache-dir torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cpu && \
+    pip install --no-cache-dir -r requirements.txt && \
+    pip install eventlet==0.33.3 
+    # Cài thêm eventlet như đã bàn ở câu trước
 
-# --- COPY TOÀN BỘ CODE VÀO SAU ---
+# Copy toàn bộ code vào
 COPY . .
 
-# Mở cổng 10000
+# Mở port 10000 (khớp với render.yaml)
 EXPOSE 10000
 
-# Lệnh khởi chạy tối ưu cho SocketIO + Gunicorn
-# Sử dụng gevent để hỗ trợ kết nối đồng thời tốt hơn
-CMD ["gunicorn", "-k", "gevent", "-w", "1", "--threads", "4", "--bind", "0.0.0.0:10000", "run:app"]
+# Lệnh chạy server với Gunicorn và Eventlet
+CMD ["gunicorn", "--worker-class", "eventlet", "-w", "1", "--bind", "0.0.0.0:10000", "run:app"]

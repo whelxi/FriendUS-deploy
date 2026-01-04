@@ -34,7 +34,7 @@ def create_app(config_class=Config):
     # [MỚI 3] Cập nhật init SocketIO
     # cors_allowed_origins="*": Cho phép kết nối từ mọi nguồn (tránh lỗi 400 Bad Request trên Render)
     # async_mode='eventlet': Chỉ định rõ worker (khớp với file requirements.txt của bạn)
-    socketio.init_app(app, cors_allowed_origins="*", async_mode="threading")
+    socketio.init_app(app, cors_allowed_origins="*", async_mode="eventlet")
     
     oauth.init_app(app)
 

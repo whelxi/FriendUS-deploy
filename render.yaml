@@ -1,9 +1,11 @@
 services:
   - type: web
     name: friendus
-    env: docker # Chuyển sang Docker để dùng Dockerfile tối ưu ở trên
+    env: docker  # [QUAN TRỌNG] Đổi từ 'python' sang 'docker'
     plan: free
-    region: singapore # Chọn vùng gần VN để load nhanh hơn
+
+    # Dockerfile nằm ở thư mục gốc, nên không cần khai báo dockerContext hay dockerfilePath
+    # Render sẽ tự tìm file có tên "Dockerfile"
 
     envVars:
       - key: PYTHON_VERSION
@@ -12,7 +14,5 @@ services:
         value: production
       - key: FLASK_DEBUG
         value: "0"
-      - key: ENABLE_SEED
-        value: "True" # Đổi thành False nếu không muốn reset data mỗi lần deploy
-      - key: TZ
-        value: "Asia/Ho_Chi_Minh"
+      # Các biến môi trường khác như SECRET_KEY, DATABASE_URL... 
+      # bạn nên set trong Dashboard của Render để bảo mật, không nên viết cứng ở đây.

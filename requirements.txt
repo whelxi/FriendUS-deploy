@@ -1,7 +1,7 @@
 # ---- Core ----
 Flask==3.0.3
 gunicorn
-gevent
+eventlet==0.33.3
 
 # ---- Flask Extensions ----
 bootstrap-flask
@@ -29,7 +29,6 @@ torch
 transformers
 peft
 sentencepiece
-faker
 
 # ---- Google Generative AI ----
 google-generativeai

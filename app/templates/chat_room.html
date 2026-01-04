@@ -8,68 +8,116 @@
 
 <style>
     /* =========================================
-       1. FIXED LAYOUT (APP STYLE)
+       1. CORE LAYOUT FIXES
        ========================================= */
     :root {
         --sidebar-left-width: 260px;
-        --sidebar-right-width: 260px;
-        --navbar-height: 76px;
+        --sidebar-right-width: 280px;
+        --navbar-height: 70px;
         --bg-chat: #ffffff;
-        --bg-sidebar: #f7f7f7;
+        --bg-sidebar: #f8f9fa;
+        --primary-color: #0d6efd;
     }
+
+    body { overflow: hidden; /* Chặn scroll body chính để app xử lý scroll riêng */ }
 
     .app-fixed-wrapper {
         position: fixed; top: var(--navbar-height); left: 0; right: 0; bottom: 0;
         background-color: #fff; z-index: 100; display: flex; overflow: hidden;
     }
 
-    /* --- SIDEBAR --- */
+    /* --- SIDEBAR LEFT --- */
     .app-sidebar {
-        width: var(--sidebar-left-width); background: var(--bg-sidebar); border-right: 1px solid #e5e5e5;
-        display: flex; flex-direction: column; padding: 20px 12px; flex-shrink: 0;
+        width: var(--sidebar-left-width); background: var(--bg-sidebar); border-right: 1px solid #dee2e6;
+        display: flex; flex-direction: column; padding: 20px 16px; flex-shrink: 0;
     }
     .nav-pills .nav-link {
-        border-radius: 8px; padding: 12px 16px; margin-bottom: 6px; color: #5e6065;
-        font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 12px; transition: all 0.2s;
+        border-radius: 12px; padding: 12px 16px; margin-bottom: 8px; color: #6c757d;
+        font-weight: 600; font-size: 0.95rem; display: flex; align-items: center; gap: 12px; transition: all 0.2s ease;
     }
-    .nav-pills .nav-link:hover { background-color: #e4e6ea; color: #000; }
-    .nav-pills .nav-link.active { background: #e7f3ff; color: #0084ff; }
+    .nav-pills .nav-link:hover { background-color: #e9ecef; color: #212529; }
+    .nav-pills .nav-link.active { background: #e7f1ff; color: var(--primary-color); box-shadow: none; }
+    .nav-pills .nav-link i { font-size: 1.1rem; }
 
-    /* --- MAIN AREA --- */
-    .app-main { flex: 1; display: flex; flex-direction: column; background-color: var(--bg-chat); position: relative; min-width: 0; }
-    .app-header { height: 60px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; padding: 0 20px; flex-shrink: 0; background: #fff; }
-    .app-content-body { flex: 1; display: flex; overflow: hidden; position: relative; } /* Added position relative */
+    /* --- MAIN CONTENT AREA --- */
+    .app-main { flex: 1; display: flex; flex-direction: column; background-color: var(--bg-chat); position: relative; min-width: 0; height: 100%; }
+    
+    .app-header { 
+        height: 64px; border-bottom: 1px solid #f0f0f0; display: flex; align-items: center; justify-content: space-between; 
+        padding: 0 24px; flex-shrink: 0; background: #fff; z-index: 10;
+    }
 
-    /* --- CHAT CSS --- */
-    .chat-area-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; }
-    #messages { flex: 1; padding: 20px 40px; overflow-y: auto; display: flex; flex-direction: column; gap: 6px; }
-    .message-bubble { max-width: 65%; padding: 10px 16px; font-size: 0.95rem; line-height: 1.5; position: relative; }
-    .message-self { align-self: flex-end; background: #0084ff; color: white; border-radius: 18px 18px 4px 18px; }
-    .message-other { align-self: flex-start; background: #f0f2f5; color: #050505; border-radius: 18px 18px 18px 4px; }
-    .chat-input-container { padding: 20px; background: #fff; }
-    .chat-input-wrapper { background: #f0f2f5; border-radius: 30px; padding: 6px 15px; display: flex; align-items: center; gap: 8px; border: 1px solid transparent; transition: border 0.2s; }
-    .chat-input-wrapper:focus-within { border-color: #0084ff; background: #fff; box-shadow: 0 0 0 2px rgba(0,132,255,0.1); }
+    /* Container full height cho Iframe & Map */
+    .app-content-body { flex: 1; display: flex; flex-direction: column; overflow: hidden; position: relative; width: 100%; height: 100%; }
+    .tab-content { flex: 1; display: flex; flex-direction: column; height: 100%; width: 100%; }
+    .tab-pane { width: 100%; height: 100%; flex: 1; display: none; }
+    .tab-pane.active { display: block; } 
+    
+    iframe.full-frame { width: 100%; height: 100%; border: none; display: block; }
+
+    /* --- CHAT AREA --- */
+    .chat-area-wrapper { flex: 1; display: flex; flex-direction: column; position: relative; height: 100%; }
+    #messages { flex: 1; padding: 20px 30px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+    
+    .message-bubble { max-width: 70%; padding: 10px 18px; font-size: 0.95rem; line-height: 1.5; position: relative; box-shadow: 0 1px 2px rgba(0,0,0,0.05); }
+    .message-self { align-self: flex-end; background: var(--primary-color); color: white; border-radius: 18px 18px 4px 18px; }
+    .message-other { align-self: flex-start; background: #f0f2f5; color: #1c1e21; border-radius: 18px 18px 18px 4px; border: 1px solid #f0f0f0; }
+    
+    /* Input Container & AI Features */
+    .chat-input-container { padding: 16px 24px; background: #fff; border-top: 1px solid #f0f0f0; position: relative; }
+    .chat-input-wrapper { background: #f0f2f5; border-radius: 24px; padding: 6px 8px 6px 20px; display: flex; align-items: center; gap: 10px; transition: ring 0.2s; }
+    .chat-input-wrapper:focus-within { background: #fff; box-shadow: 0 0 0 2px rgba(13, 110, 253, 0.25); border: 1px solid #cce5ff; }
     #message-input { background: transparent; border: none; box-shadow: none; padding: 8px 0; font-size: 0.95rem; }
 
-    /* --- RIGHT SIDEBAR --- */
-    .right-sidebar { width: var(--sidebar-right-width); background: #fff; border-left: 1px solid #f0f0f0; display: flex; flex-direction: column; padding-top: 20px; flex-shrink: 0; height: 100%; } /* [FIX] Thêm height 100% */
+    /* AI SUGGESTION POPUP STYLE */
+    #suggestion-popup {
+        position: absolute;
+        bottom: 80px; /* Nằm phía trên input */
+        left: 24px;
+        background: white;
+        padding: 10px 16px;
+        border-radius: 12px;
+        box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+        border: 1px solid #e4e6eb;
+        display: none; /* Mặc định ẩn */
+        z-index: 1000;
+        animation: fadeIn 0.2s ease-out;
+        max-width: 80%;
+    }
+    @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
     
-    /* [FIX] Thêm CSS cho container danh sách user để cuộn */
-    #user-list-container {
-        flex: 1;            /* Chiếm toàn bộ không gian còn lại */
-        overflow-y: auto;   /* Cho phép cuộn dọc */
-        overflow-x: hidden;
-        padding: 0 10px 20px 10px; /* Padding để scroll không bị sát lề */
+    .suggestion-label { font-size: 11px; text-transform: uppercase; color: #65676b; font-weight: 700; margin-bottom: 2px; display: flex; align-items: center; gap: 5px; }
+    .suggestion-content { color: #0084ff; font-weight: 600; font-size: 14px; cursor: pointer; }
+    
+    .kbd-hint {
+        background: #f0f2f5; border: 1px solid #ccc; border-radius: 4px; padding: 2px 6px;
+        font-size: 10px; color: #65676b; font-family: monospace; margin-left: 8px; vertical-align: middle;
     }
 
-    .member-item { display: flex; align-items: center; padding: 10px; margin-bottom: 2px; border-radius: 8px; cursor: pointer; transition: background 0.2s; }
-    .member-item:hover { background-color: #f5f5f5; }
-    .member-avatar { width: 36px; height: 36px; border-radius: 50%; background: #e4e6eb; color: #050505; font-weight: 700; display: flex; align-items: center; justify-content: center; margin-right: 12px; position: relative; font-size: 0.9rem; }
-    .status-dot { width: 12px; height: 12px; border-radius: 50%; border: 2px solid #fff; position: absolute; bottom: -2px; right: -2px; }
-    .status-online { background-color: #31a24c; }
+    /* Nút Magic Wand Toggle */
+    .btn-ai-toggle {
+        border: none; background: transparent; color: #65676b;
+        width: 36px; height: 36px; border-radius: 50%;
+        display: flex; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s; margin-right: 4px; font-size: 1.1rem;
+    }
+    .btn-ai-toggle:hover { background-color: #f2f2f2; }
+    .btn-ai-toggle.active { color: #0084ff; background-color: #e7f1ff; }
+
+    /* --- RIGHT SIDEBAR (MEMBERS) --- */
+    .right-sidebar { width: var(--sidebar-right-width); background: #fff; border-left: 1px solid #f0f0f0; display: flex; flex-direction: column; flex-shrink: 0; height: 100%; }
+    .member-header { padding: 20px; font-weight: 700; color: #212529; border-bottom: 1px solid #f8f9fa; display: flex; justify-content: space-between; align-items: center; }
+    #user-list-container { flex: 1; overflow-y: auto; padding: 10px 16px; }
+    .member-item { display: flex; align-items: center; padding: 10px; border-radius: 10px; cursor: pointer; transition: background 0.2s; margin-bottom: 4px; }
+    .member-item:hover { background-color: #f8f9fa; }
+    .member-avatar { width: 36px; height: 36px; border-radius: 50%; background: #e9ecef; color: #495057; font-weight: 600; display: flex; align-items: center; justify-content: center; margin-right: 12px; position: relative; font-size: 0.9rem; }
+    .status-dot { width: 10px; height: 10px; border-radius: 50%; border: 2px solid #fff; position: absolute; bottom: 0; right: 0; }
+    .status-online { background-color: #2ecc71; }
     .status-offline { background-color: #adb5bd; }
 
-    /* --- MAP STYLES (Embed) --- */
+    /* =========================================
+       2. MAP STYLES (Fixed)
+       ========================================= */
     #map-container { position: relative; width: 100%; height: 100%; font-family: 'Roboto', 'Segoe UI', sans-serif; overflow: hidden; }
     #map { width: 100%; height: 100%; z-index: 1; }
     
@@ -84,6 +132,11 @@
     #map-sidebar-panel { position: absolute; top: 0; left: 0; bottom: 0; width: 360px; background: white; z-index: 1001; box-shadow: 4px 0 12px rgba(0,0,0,0.15); transform: translateX(-110%); transition: transform 0.3s cubic-bezier(0.25, 0.8, 0.25, 1); display: flex; flex-direction: column; }
     #map-sidebar-panel.active { transform: translateX(0); }
     .sidebar-header { padding: 12px 16px; display: flex; align-items: flex-start; gap: 10px; flex-shrink: 0; }
+    
+    /* FIXED: background property */
+    .close-sidebar-btn { border: none; background: none; cursor: pointer; padding: 4px; } 
+    #btn-close-sidebar { border: none; background: none; cursor: pointer; }
+
     .input-row { background: #f1f3f4; border-radius: 8px; height: 40px; display: flex; align-items: center; padding: 0 12px; margin-bottom: 8px; }
     .input-row input { border: none; background: transparent; outline: none; width: 100%; font-size: 14px; }
     .mode-selector { display: flex; justify-content: space-between; padding: 8px 16px; border-bottom: 1px solid #e8eaed; }
@@ -106,11 +159,11 @@
 
 <div class="app-fixed-wrapper">
     <nav class="app-sidebar">
-        <div class="mb-4 px-3">
-            <h5 class="fw-bold text-primary m-0" style="font-family: sans-serif; letter-spacing: -0.5px;">
+        <div class="mb-4 px-2">
+            <h4 class="fw-bold text-primary m-0 d-flex align-items-center">
                 <i class="bi bi-exclude me-2"></i>FriendUS
-            </h5>
-            <small class="text-muted opacity-75">Workspace</small>
+            </h4>
+            <div class="text-muted small ms-1 opacity-75">Team Workspace</div>
         </div>
 
         <div class="nav flex-column nav-pills" id="roomTabs" role="tablist">
@@ -133,22 +186,23 @@
         
         <div class="mt-auto pt-3 border-top">
             <div class="dropdown">
-                <button class="btn btn-light w-100 d-flex justify-content-between align-items-center bg-white border shadow-sm rounded-3 py-2" data-bs-toggle="dropdown">
-                    <span class="small fw-bold"><i class="bi bi-gear-fill me-2 text-secondary"></i>Cài đặt</span>
+                <button class="btn btn-white w-100 d-flex align-items-center justify-content-between border shadow-sm rounded-3 py-2 px-3" data-bs-toggle="dropdown">
+                    <span class="small fw-semibold text-dark">Cài đặt nhóm</span>
+                    <i class="bi bi-gear-fill text-secondary"></i>
                 </button>
-                <ul class="dropdown-menu w-100 shadow border-0 mb-2">
-                    <li><a class="dropdown-item" href="{{ url_for('main.index') }}">Về trang chủ</a></li>
+                <ul class="dropdown-menu w-100 shadow-sm border-0 mb-2 p-1 rounded-3">
+                    <li><a class="dropdown-item rounded-2" href="{{ url_for('main.index') }}">Về trang chủ</a></li>
                     <li><hr class="dropdown-divider"></li>
                     {% if current_user.id == room.creator_id %}
                     <li>
                         <form action="{{ url_for('chat.delete_chat_room', room_id=room.id) }}" method="POST" onsubmit="return confirm('Xóa vĩnh viễn nhóm này?');">
-                            <button class="dropdown-item text-danger small"><i class="bi bi-trash me-2"></i>Xóa nhóm</button>
+                            <button class="dropdown-item text-danger rounded-2 small"><i class="bi bi-trash me-2"></i>Xóa nhóm</button>
                         </form>
                     </li>
                     {% else %}
                     <li>
                         <form action="{{ url_for('chat.leave_chat_room', room_id=room.id) }}" method="POST" onsubmit="return confirm('Bạn chắc chắn muốn rời nhóm?');">
-                            <button class="dropdown-item text-warning small"><i class="bi bi-box-arrow-right me-2"></i>Rời nhóm</button>
+                            <button class="dropdown-item text-warning rounded-2 small"><i class="bi bi-box-arrow-right me-2"></i>Rời nhóm</button>
                         </form>
                     </li>
                     {% endif %}
@@ -160,61 +214,80 @@
     <main class="app-main">
         <header class="app-header">
             <div class="d-flex align-items-center gap-3">
-                <div class="d-flex align-items-center justify-content-center bg-gradient bg-primary text-white rounded-circle shadow-sm" style="width: 38px; height: 38px; font-weight: bold;">
+                <div class="d-flex align-items-center justify-content-center bg-primary text-white rounded-circle shadow-sm" style="width: 40px; height: 40px; font-weight: bold; font-size: 1.1rem;">
                     {{ room.name[0]|upper }}
                 </div>
                 <div>
-                    <h6 class="fw-bold mb-0 text-dark">{{ room.name }}</h6>
-                    <div class="d-flex align-items-center small text-muted">
-                        <span>{{ room.members.count() }} thành viên</span>
+                    <h6 class="fw-bold mb-0 text-dark" style="font-size: 1rem;">{{ room.name }}</h6>
+                    <div class="small text-muted d-flex align-items-center">
+                        <span class="status-dot d-inline-block position-relative me-2 bg-success border-0" style="width: 8px; height: 8px;"></span> 
+                        <span id="header-member-count">{{ room.members.count() }} thành viên</span>
                     </div>
                 </div>
             </div>
              <div class="d-flex align-items-center gap-2">
-                <button class="btn btn-outline-primary btn-sm rounded-pill fw-semibold px-3" id="btn-header-summarize">
+                <button class="btn btn-outline-primary btn-sm rounded-pill fw-semibold px-3 border-2" id="btn-header-summarize" style="font-size: 0.85rem;">
                     <i class="bi bi-stars me-1"></i> AI Recap
                 </button>
-
-                <button class="btn btn-primary btn-sm rounded-pill fw-semibold px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#inviteModal">
-                    <i class="bi bi-person-plus-fill me-1"></i> Thêm bạn
+                <button class="btn btn-primary btn-sm rounded-pill fw-semibold px-3 shadow-sm" data-bs-toggle="modal" data-bs-target="#inviteModal" style="font-size: 0.85rem;">
+                    <i class="bi bi-person-plus-fill me-1"></i> Mời bạn
                 </button>
             </div>
         </header>
 
         <div class="app-content-body">
-            <div class="tab-content w-100 h-100" id="roomTabsContent">
+            <div class="tab-content" id="roomTabsContent">
                 
-                <div class="tab-pane fade show active h-100" id="chat-panel" role="tabpanel">
-                    <div class="d-flex h-100 w-100">
+                <div class="tab-pane fade show active" id="chat-panel" role="tabpanel">
+                    <div class="d-flex w-100 h-100">
                         <div class="chat-area-wrapper">
                             <div id="messages">
-    {% for msg in messages %}
-        <div class="message-bubble {{ 'message-self' if msg.author == current_user else 'message-other' }}">
-            <strong>{{ 'You' if msg.author == current_user else msg.author.username }}</strong>: {{ msg.body }}
-        </div>
-    {% endfor %}
-</div>
-                            <div id="typing-status" class="px-4 pb-1 text-muted small fst-italic" style="min-height: 20px;"></div>
+                                {% for msg in messages %}
+                                    <div class="message-bubble {{ 'message-self' if msg.author == current_user else 'message-other' }}">
+                                        {% if msg.author != current_user %}
+                                            <div class="small fw-bold mb-1" style="color: #65676b; font-size: 0.75rem;">{{ msg.author.username }}</div>
+                                        {% endif %}
+                                        {{ msg.body }}
+                                    </div>
+                                {% endfor %}
+                            </div>
+                            <div id="typing-status" class="px-4 pb-1 text-muted small fst-italic" style="height: 20px; font-size: 0.75rem;"></div>
+                            
                             <div class="chat-input-container">
+                                <div id="suggestion-popup">
+                                    <div class="suggestion-label">
+                                        <i class="bi bi-stars text-warning"></i> GỢI Ý <span class="kbd-hint">TAB</span>
+                                    </div>
+                                    <div class="suggestion-content" id="suggestion-text"></div>
+                                </div>
+
                                 <form id="chat-form" class="chat-input-wrapper">
                                     <input type="text" class="form-control" id="message-input" placeholder="Nhập tin nhắn..." autocomplete="off">
-                                    <button class="btn btn-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center border-0" type="submit" style="width: 32px; height: 32px;">
-                                        <i class="bi bi-send-fill" style="font-size: 0.8rem;"></i>
+                                    
+                                    <button type="button" id="btn-ai-toggle" class="btn-ai-toggle" title="Bật/Tắt Gợi ý AI">
+                                        <i class="bi bi-magic"></i>
+                                    </button>
+
+                                    <button class="btn btn-primary rounded-circle shadow-sm d-flex align-items-center justify-content-center border-0" type="submit" style="width: 36px; height: 36px;">
+                                        <i class="bi bi-send-fill" style="font-size: 0.9rem;"></i>
                                     </button>
                                 </form>
                             </div>
                         </div>
-                        <aside class="right-sidebar">
-                            <div class="member-header">Thành viên — <span id="user-count">{{ room.members.count() }}</span></div>
+                        
+                        <aside class="right-sidebar d-none d-lg-flex">
+                            <div class="member-header">
+                                <span>Thành viên</span>
+                                <span class="badge bg-light text-dark border" id="user-count">{{ room.members.count() }}</span>
+                            </div>
                             <div id="user-list-container">
                                 {% for member in room.members %}
                                 <div class="member-item">
                                     <div class="member-avatar">
                                         {{ member.username[0]|upper }}
-                                        {# Mặc định hiện offline, socket sẽ update lại sau #}
                                         <span class="status-dot status-offline"></span>
                                     </div>
-                                    <div class="small">{{ member.username }}</div>
+                                    <div class="fw-semibold text-dark" style="font-size: 0.9rem;">{{ member.username }}</div>
                                 </div>
                                 {% endfor %}
                             </div>
@@ -222,13 +295,14 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade h-100" id="finance-panel" role="tabpanel">
+                <div class="tab-pane fade" id="finance-panel" role="tabpanel">
                     <iframe src="{{ url_for('finance.view_finance', room_id=room.id, hide_nav=1) }}" 
-                            style="width: 100%; height: 100%; border: none; display: block;" 
-                            title="Finance Module"></iframe>
+                            class="full-frame"
+                            title="Finance Module"
+                            loading="lazy"></iframe>
                 </div>
 
-                <div class="tab-pane fade h-100 w-100" id="map-panel" role="tabpanel">
+                <div class="tab-pane fade" id="map-panel" role="tabpanel">
                     <div id="map-container">
                         <div id="floating-search-bar">
                             <div class="search-container-pill">
@@ -241,7 +315,7 @@
 
                         <div id="map-sidebar-panel">
                             <div class="sidebar-header">
-                                <button class="close-sidebar-btn" id="btn-close-sidebar" style="border:none; bg:none; cursor:pointer;"><i class="bi bi-arrow-left"></i></button>
+                                <button class="close-sidebar-btn" id="btn-close-sidebar"><i class="bi bi-arrow-left"></i></button>
                                 <div style="flex:1; display:flex; flex-direction:column; gap:8px;">
                                     <div class="input-row">
                                         <i class="bi bi-circle" style="font-size: 12px; margin-right: 10px; color: #5f6368;"></i>
@@ -284,10 +358,11 @@
                     </div>
                 </div>
 
-                <div class="tab-pane fade h-100" id="weather-panel" role="tabpanel">
+                <div class="tab-pane fade" id="weather-panel" role="tabpanel">
                     <iframe src="{{ url_for('weather.view_weather', room_id=room.id, hide_nav=1) }}" 
-                            style="width: 100%; height: 100%; border: none; display: block;" 
-                            title="Weather Module"></iframe>
+                            class="full-frame"
+                            title="Weather Module"
+                            loading="lazy"></iframe>
                 </div>
             </div>
         </div>
@@ -315,10 +390,10 @@
                                     <input class="form-check-input flex-shrink-0" type="checkbox" name="friend_ids" value="{{ friend.id }}" style="width: 1.2em; height: 1.2em;">
                                     <div class="d-flex align-items-center">
                                         {% if 'http' in friend.image_file %}
-    <img src="{{ friend.image_file }}" class="rounded-circle me-2" width="32" height="32" style="object-fit: cover;">
-{% else %}
-    <img src="{{ url_for('static', filename='profile_pics/' + friend.image_file) }}" class="rounded-circle me-2" width="32" height="32" style="object-fit: cover;">
-{% endif %}
+                                            <img src="{{ friend.image_file }}" class="rounded-circle me-2" width="32" height="32" style="object-fit: cover;">
+                                        {% else %}
+                                            <img src="{{ url_for('static', filename='profile_pics/' + friend.image_file) }}" class="rounded-circle me-2" width="32" height="32" style="object-fit: cover;">
+                                        {% endif %}
                                         <span class="fw-bold invite-username">{{ friend.username }}</span>
                                     </div>
                                 </label>
@@ -346,7 +421,7 @@
                 const name = item.querySelector('.invite-username').textContent.toLowerCase();
                 if (name.includes(term)) {
                     item.classList.remove('d-none');
-                    item.classList.add('d-flex'); // Giữ layout flex cũ
+                    item.classList.add('d-flex');
                     hasResult = true;
                 } else {
                     item.classList.remove('d-flex');
@@ -354,7 +429,6 @@
                 }
             });
 
-            // Hiện thông báo nếu không tìm thấy ai
             const noResultMsg = document.getElementById('no-result-msg');
             if (noResultMsg) noResultMsg.style.display = (hasResult || items.length === 0) ? 'none' : 'block';
         });
@@ -475,7 +549,6 @@
 
         function scrollToBottom() { messageContainer.scrollTop = messageContainer.scrollHeight; }
         
-        // [FIX] Tự động cuộn xuống khi mới vào trang
         scrollToBottom();
 
         function addMessage(data) {
@@ -483,34 +556,138 @@
             let bubbleClass = isSelf ? 'message-self' : 'message-other';
             const msgDiv = document.createElement('div');
             msgDiv.className = `message-bubble ${bubbleClass}`;
-            msgDiv.innerHTML = `<strong>${isSelf ? 'You' : data.username}</strong>: ${data.msg}`;
+            if (!isSelf) {
+                 msgDiv.innerHTML = `<div class="small fw-bold mb-1" style="color: #65676b; font-size: 0.75rem;">${data.username}</div>${data.msg}`;
+            } else {
+                 msgDiv.innerHTML = data.msg;
+            }
             messageContainer.appendChild(msgDiv);
             scrollToBottom();
         }
 
         socket.on('connect', () => { socket.emit('join', { 'room': roomName }); });
-        socket.on('load_history', msgs => { messageContainer.innerHTML=''; msgs.forEach(addMessage); });
+        socket.on('load_history', msgs => { 
+            messageContainer.innerHTML=''; 
+            msgs.forEach(msg => {
+                let data = { username: msg.author ? msg.author.username : msg.username, msg: msg.body || msg.msg };
+                addMessage(data);
+            }); 
+            scrollToBottom();
+        });
         socket.on('receive_message', data => { addMessage(data); typingStatus.textContent = ''; });
-        socket.on('status', data => { messageContainer.innerHTML += `<div class="text-center small text-muted"><em>${data.msg}</em></div>`; });
+        socket.on('status', data => { messageContainer.innerHTML += `<div class="text-center small text-muted my-2"><em>${data.msg}</em></div>`; scrollToBottom(); });
         socket.on('user_list', data => {
              const c = document.getElementById('user-list-container'); c.innerHTML = '';
              document.getElementById('user-count').textContent = data.online.length + data.offline.length;
-             data.online.forEach(u => c.innerHTML += `<div class="member-item"><div class="member-avatar">${u[0].toUpperCase()}<span class="status-dot status-online"></span></div><div class="small">${u}</div></div>`);
-             data.offline.forEach(u => c.innerHTML += `<div class="member-item"><div class="member-avatar">${u[0].toUpperCase()}<span class="status-dot status-offline"></span></div><div class="small">${u}</div></div>`);
+             const headerCount = document.getElementById('header-member-count');
+             if(headerCount) headerCount.textContent = (data.online.length + data.offline.length) + " thành viên";
+
+             data.online.forEach(u => c.innerHTML += `<div class="member-item"><div class="member-avatar">${u[0].toUpperCase()}<span class="status-dot status-online"></span></div><div class="fw-semibold text-dark" style="font-size: 0.9rem;">${u}</div></div>`);
+             data.offline.forEach(u => c.innerHTML += `<div class="member-item"><div class="member-avatar">${u[0].toUpperCase()}<span class="status-dot status-offline"></span></div><div class="fw-semibold text-dark" style="font-size: 0.9rem;">${u}</div></div>`);
         });
 
         document.getElementById('chat-form').addEventListener('submit', e => {
             e.preventDefault(); 
             let msg = messageInput.value.trim();
-            if (msg) { socket.emit('send_message', { 'msg': msg, 'room': roomName }); messageInput.value = ''; }
+            if (msg) { 
+                socket.emit('send_message', { 'msg': msg, 'room': roomName }); 
+                messageInput.value = ''; 
+                // [FIX] Ẩn popup khi gửi tin nhắn
+                const suggestionPopup = document.getElementById('suggestion-popup');
+                if(suggestionPopup) suggestionPopup.style.display = 'none';
+            }
         });
         
+        // --- LOGIC GỢI Ý TIN NHẮN (AI SUGGESTION) - [RESTORED] ---
+        let suggestionDebounceTimer;
+        const suggestionPopup = document.getElementById('suggestion-popup');
+        const suggestionText = document.getElementById('suggestion-text');
+        const btnAiToggle = document.getElementById('btn-ai-toggle');
+        
+        // Trạng thái AI (Mặc định là true nếu chưa lưu)
+        let isAiEnabled = localStorage.getItem('friendus_ai_enabled') !== 'false';
+
+        // Hàm cập nhật giao diện nút
+        function updateAiButtonUI() {
+            if (isAiEnabled) {
+                btnAiToggle.classList.add('active'); // Thêm màu xanh
+            } else {
+                btnAiToggle.classList.remove('active'); // Về màu xám
+                suggestionPopup.style.display = 'none';
+            }
+        }
+        
+        // Khởi chạy lần đầu
+        updateAiButtonUI();
+
+        // Xử lý khi bấm nút Magic Wand
+        btnAiToggle.addEventListener('click', () => {
+            isAiEnabled = !isAiEnabled; // Đảo ngược trạng thái
+            localStorage.setItem('friendus_ai_enabled', isAiEnabled);
+            updateAiButtonUI();
+            messageInput.focus();
+        });
+
+        messageInput.addEventListener('keydown', (e) => {
+            // Nếu bấm TAB và popup đang hiện -> Chọn gợi ý
+            if (e.key === 'Tab' && suggestionPopup.style.display === 'block') {
+                e.preventDefault(); // Chặn việc focus ra khỏi input
+                messageInput.value = suggestionText.innerText; // Điền text
+                suggestionPopup.style.display = 'none'; // Ẩn popup
+                messageInput.focus();
+            }
+        });
+
         messageInput.addEventListener('input', () => {
+            // 1. Logic Typing Socket cũ
             socket.emit('typing', { room: roomName });
             clearTimeout(typingTimer);
             typingTimer = setTimeout(() => socket.emit('stopped_typing', { room: roomName }), 1000);
+
+            // 2. Logic AI Suggestion mới
+            // Kiểm tra: Nếu tắt AI thì thoát luôn
+            if (!isAiEnabled) {
+                suggestionPopup.style.display = 'none';
+                return;
+            }
+
+            const query = messageInput.value;
+            
+            // Ẩn popup nếu đang xóa hoặc trống
+            if (!query || query.trim().length < 2) {
+                suggestionPopup.style.display = 'none';
+                return;
+            }
+
+            clearTimeout(suggestionDebounceTimer);
+            suggestionDebounceTimer = setTimeout(() => {
+                fetch('/api/suggest-text', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ text: query })
+                })
+                .then(r => r.json())
+                .then(data => {
+                    // Chỉ hiện nếu có gợi ý và gợi ý KHÁC với cái đang gõ
+                    if (data.suggestion && data.suggestion.trim() !== query.trim()) {
+                        suggestionText.innerText = data.suggestion;
+                        suggestionPopup.style.display = 'block';
+                    } else {
+                        suggestionPopup.style.display = 'none';
+                    }
+                })
+                .catch(err => console.error("Suggestion Error:", err));
+            }, 500); // Delay 0.5s để tránh spam API
         });
-        socket.on('typing_status', d => typingStatus.textContent = d.isTyping ? `${d.username} is typing...` : '');
+        
+        // Ẩn popup khi click ra ngoài hoặc gửi tin nhắn
+        document.addEventListener('click', (e) => {
+            if (!suggestionPopup.contains(e.target) && e.target !== messageInput) {
+                suggestionPopup.style.display = 'none';
+            }
+        });
+
+        socket.on('typing_status', d => typingStatus.textContent = d.isTyping ? `${d.username} đang nhập...` : '');
     });
 
     // --- 2. MAP LOGIC (Tích hợp MapManager) ---
@@ -541,12 +718,10 @@
                 infoAddr: document.getElementById('info-addr'),
                 btnCardRoute: document.getElementById('btn-card-directions')
             };
-            
-            // Không init ngay mà chờ Tab Show
         }
 
         initMap() {
-            if(this.map) return; // Đã init rồi thì thôi
+            if(this.map) return;
             
             // [OSM] Init Map
             this.map = L.map('map', { zoomControl: false }).setView([10.762622, 106.660172], 13);
@@ -563,7 +738,7 @@
         preloadUserLocation() {
             if (navigator.geolocation) {
                 navigator.geolocation.getCurrentPosition(pos => {
-                    this.userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: "Your Location", isUser: true };
+                    this.userLocation = { lat: pos.coords.latitude, lon: pos.coords.longitude, name: "Vị trí của bạn", isUser: true };
                     L.circleMarker([this.userLocation.lat, this.userLocation.lon], {
                         radius: 8, fillColor: "#4285F4", color: "#fff", weight: 2, opacity: 1, fillOpacity: 1
                     }).addTo(this.map);
@@ -616,10 +791,10 @@
             this.dom.results.style.display = 'block';
             const myLoc = document.createElement('div');
             myLoc.className = 'result-item';
-            myLoc.innerHTML = `<div style="background: #e8f0fe; padding: 8px; border-radius: 50%; margin-right: 12px;"><i class="bi bi-cursor-fill" style="color:#1a73e8;"></i></div><span class="result-name" style="color: #1a73e8; font-weight: 500;">Your Location</span>`;
+            myLoc.innerHTML = `<div style="background: #e8f0fe; padding: 8px; border-radius: 50%; margin-right: 12px;"><i class="bi bi-cursor-fill" style="color:#1a73e8;"></i></div><span class="result-name" style="color: #1a73e8; font-weight: 500;">Vị trí của bạn</span>`;
             myLoc.onclick = () => {
                 if (this.userLocation) this.selectLocation(this.userLocation, this.activeInput);
-                else alert("Location permission needed.");
+                else alert("Cần cấp quyền truy cập vị trí.");
             };
             this.dom.results.appendChild(myLoc);
         }
@@ -627,11 +802,11 @@
         async handleMapClick(e) {
             if (this.mode === 'route') return;
             const { lat, lng } = e.latlng;
-            this.showBottomCard(lat, lng, "Dropped Pin", "Fetching...");
+            this.showBottomCard(lat, lng, "Đã thả ghim", "Đang tải địa chỉ...");
             try {
                 const res = await fetch(`${this.config.urls.reverse}?lat=${lat}&lon=${lng}`);
                 const data = await res.json();
-                const addr = data.display_name || "Unknown address";
+                const addr = data.display_name || "Không xác định";
                 this.showBottomCard(lat, lng, addr.split(',')[0], addr);
             } catch (err) { console.error(err); }
         }
@@ -717,7 +892,7 @@
         async calculateRoute() {
             const p1 = `${this.locations.start.lat},${this.locations.start.lon}`;
             const p2 = `${this.locations.end.lat},${this.locations.end.lon}`;
-            this.dom.routePanel.innerHTML = '<div class="p-4 text-center text-muted">Calculating route...</div>';
+            this.dom.routePanel.innerHTML = '<div class="p-4 text-center text-muted">Đang tính toán lộ trình...</div>';
             try {
                 const url = `${this.config.urls.route}?point1=${p1}&point2=${p2}&vehicle=${this.transportMode}`;
                 const res = await fetch(url);
@@ -725,14 +900,14 @@
                 if (data.routes && data.routes[0]) {
                     this.drawRoute(data.routes[0].geometry); 
                     this.renderInstructions(data.routes[0]);
-                } else this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">No route found.</div>';
-            } catch (e) { this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">Error calculating route.</div>'; }
+                } else this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">Không tìm thấy đường đi.</div>';
+            } catch (e) { this.dom.routePanel.innerHTML = '<div class="p-4 text-danger">Lỗi khi tính toán.</div>'; }
         }
 
         renderInstructions(route) {
             const dist = (route.distance / 1000).toFixed(1); 
             const time = Math.round(route.duration / 60); 
-            let html = `<div style="padding:16px; background:#f8f9fa; border-bottom:1px solid #e8eaed;"><span style="font-size:24px; color:#188038; font-weight:500;">${time} min</span><span style="color:#5f6368; margin-left:8px;">(${dist} km)</span></div>`;
+            let html = `<div style="padding:16px; background:#f8f9fa; border-bottom:1px solid #e8eaed;"><span style="font-size:24px; color:#188038; font-weight:500;">${time} phút</span><span style="color:#5f6368; margin-left:8px;">(${dist} km)</span></div>`;
             route.legs[0].steps.forEach(step => {
                 html += `<div style="padding:12px 16px; border-bottom:1px solid #f1f3f4; display:flex; gap:12px;"><i class="bi bi-arrow-right" style="color:#5f6368;"></i><div><div style="font-size:14px;">${step.maneuver.type} ${step.name || ''}</div><div style="font-size:12px; color:#70757a;">${step.distance.toFixed(0)}m</div></div></div>`;
             });
@@ -750,7 +925,7 @@
             this.clearMarkers('start'); this.clearMarkers('end');
             this.locations = { start: null, end: null };
             this.dom.inputs.start.value = ''; this.dom.inputs.end.value = '';
-            this.dom.routePanel.innerHTML = '<div style="padding:30px; text-align:center;"><p>Select destination.</p></div>';
+            this.dom.routePanel.innerHTML = '<div style="padding:30px; text-align:center;"><p>Chọn điểm đến.</p></div>';
         }
     }
 

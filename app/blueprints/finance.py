@@ -1,13 +1,13 @@
 from flask import Blueprint, redirect, url_for, flash, request, jsonify, render_template
 from flask_login import current_user, login_required
 from app.extensions import db
-from app.models import Room, Transaction, Outsider
+from app.models import Room, Transaction
 from app.forms import TransactionForm
 from app.utils import simplify_debts
 
 finance_bp = Blueprint('finance', __name__)
 
-# --- [NEW] Route hiển thị giao diện Finance (Dùng cho Iframe) ---
+# --- [VIEW] Route hiển thị giao diện Finance ---
 @finance_bp.route('/view/<int:room_id>', methods=['GET'])
 @login_required
 def view_finance(room_id):
@@ -23,24 +23,27 @@ def view_finance(room_id):
     pending = Transaction.query.filter_by(room_id=room.id, status='pending').all()
     history = Transaction.query.filter_by(room_id=room.id).order_by(Transaction.timestamp.desc()).limit(20).all()
 
-    # Nhận biến hide_nav từ URL (nếu gọi từ iframe)
-    hide_nav = request.args.get('hide_nav', default=False, type=bool)
+    # [FIX] Xử lý hide_nav chắc chắn hơn
+    # Lấy giá trị chuỗi, so sánh với '1' để ra True/False
+    hide_nav_param = request.args.get('hide_nav', '0')
+    hide_nav = (hide_nav_param == '1')
 
     return render_template('finance.html', 
                            room=room, 
                            form=form, 
                            pending=pending, 
                            history=history,
-                           hide_nav=hide_nav)
+                           hide_nav=hide_nav) # Truyền boolean vào template
 
-# --- Các hàm xử lý (Đã sửa redirect) ---
+# --- [ACTIONS] Các hàm xử lý (Redirect về chính nó) ---
 
 @finance_bp.route('/room/<int:room_id>/add_transaction', methods=['POST'])
 @login_required
 def add_room_transaction(room_id):
     room = Room.query.get_or_404(room_id)
     form = TransactionForm()
-    # Re-populate choices for validation
+    
+    # Re-populate để validate
     form.receiver.choices = [(m.id, m.username) for m in room.members if m.id != current_user.id]
     if not form.receiver.choices: form.receiver.choices = [(0, 'No members')]
 
@@ -50,56 +53,49 @@ def add_room_transaction(room_id):
             description=form.description.data, 
             type=form.type.data,
             sender_id=current_user.id, 
-            status='pending', 
+            status='confirmed', # Auto confirm như bạn yêu cầu
             room_id=room.id,
             receiver_id=form.receiver.data
         )
-        
         db.session.add(new_trans)
         db.session.commit()
-        flash('Transaction recorded.', 'success')
     else:
-        flash('Invalid transaction data.', 'danger')
+        # Nếu lỗi form, flash message sẽ hiện trong iframe
+        flash('Lỗi nhập liệu: Vui lòng kiểm tra số tiền và người nhận.', 'danger')
     
-    # [FIX] Nếu đang ở trong iframe (hide_nav=1), redirect về lại view_finance
-    if request.args.get('hide_nav') == '1':
-        return redirect(url_for('finance.view_finance', room_id=room.id, hide_nav=1))
-
-    return redirect(url_for('chat.chat_room', room_name=room.name))
+    # [FIX QUAN TRỌNG] 
+    # 1. Lấy trạng thái hide_nav hiện tại (từ query string của action form)
+    # 2. Redirect về lại view_finance (chính nó) kèm theo tham số hide_nav
+    hide_nav_val = request.args.get('hide_nav', '0')
+    return redirect(url_for('finance.view_finance', room_id=room.id, hide_nav=hide_nav_val))
 
 @finance_bp.route('/confirm/<int:trans_id>', methods=['POST'])
 @login_required
 def confirm_transaction(trans_id):
     trans = Transaction.query.get_or_404(trans_id)
-    room_id = trans.room.id # Lấy ID phòng trước khi thao tác DB
-    room_name = trans.room.name
+    room_id = trans.room.id 
 
     if trans.receiver_id == current_user.id:
         trans.status = 'confirmed'
         db.session.commit()
     
-    # [FIX] Redirect thông minh
-    if request.args.get('hide_nav') == '1':
-        return redirect(url_for('finance.view_finance', room_id=room_id, hide_nav=1))
-
-    return redirect(url_for('chat.chat_room', room_name=room_name))
+    # [FIX] Redirect về lại trang Finance, giữ nguyên trạng thái iframe
+    hide_nav_val = request.args.get('hide_nav', '0')
+    return redirect(url_for('finance.view_finance', room_id=room_id, hide_nav=hide_nav_val))
 
 @finance_bp.route('/delete/<int:trans_id>', methods=['POST'])
 @login_required
 def delete_transaction(trans_id):
     trans = Transaction.query.get_or_404(trans_id)
     room_id = trans.room.id
-    room_name = trans.room.name
 
     if trans.sender_id == current_user.id:
         db.session.delete(trans)
         db.session.commit()
         
-    # [FIX] Redirect thông minh
-    if request.args.get('hide_nav') == '1':
-        return redirect(url_for('finance.view_finance', room_id=room_id, hide_nav=1))
-
-    return redirect(url_for('chat.chat_room', room_name=room_name))
+    # [FIX] Redirect về lại trang Finance, giữ nguyên trạng thái iframe
+    hide_nav_val = request.args.get('hide_nav', '0')
+    return redirect(url_for('finance.view_finance', room_id=room_id, hide_nav=hide_nav_val))
 
 @finance_bp.route('/api/graph')
 @login_required

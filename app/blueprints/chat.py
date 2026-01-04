@@ -282,11 +282,7 @@ def chat_room(room_name):
     if current_user.id == room.creator_id:
         pending_requests = RoomRequest.query.filter_by(room_id=room.id, status='pending_owner').all()
     
-    # [FIX] Lấy lịch sử tin nhắn để hiển thị
-    messages = Message.query.filter_by(room=room.name).order_by(Message.timestamp.asc()).all()
-
     return render_template('chat_room.html', title=f'Trip: {room.name}', room=room,
-                           messages=messages, # <--- QUAN TRỌNG: Truyền messages sang HTML
                            act_form=act_form, cons_form=cons_form, activities=activities, timeline_data=timeline_data,
                            constraints=my_constraints, conflicts=conflicts,
                            trans_form=trans_form, pending_trans=pending_trans, history_trans=history_trans,

@@ -509,23 +509,42 @@
                     btnSave.disabled = true;
                 } else {
                     btnSave.disabled = false;
-                    currentPlanSteps.forEach(step => {
+                    currentPlanSteps.forEach((step, index) => {
                         html += `
-                            <div class="suggestion-card">
-                                <div class="suggestion-icon">
-                                    <i class="bi bi-geo-alt-fill"></i>
+                            <div class="suggestion-card d-flex align-items-start" onclick="togglePlanItem(${index})" style="cursor: pointer; padding-left: 10px;">
+                                <div class="me-3 pt-3">
+                                    <input type="checkbox" class="form-check-input plan-checkbox" 
+                                           id="plan_check_${index}" 
+                                           value="${index}" 
+                                           checked
+                                           style="width: 20px; height: 20px; cursor: pointer;">
                                 </div>
-                                <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${step.place.name}</h6>
-                                <div class="small text-muted text-truncate mb-2">${step.place.address}</div>
-                                <div class="d-flex align-items-center justify-content-between">
-                                    <span class="badge bg-light text-dark border fw-normal">${step.time.start} - ${step.time.end}</span>
-                                    <small class="text-primary fst-italic" style="font-size: 0.75rem;">
-                                        <i class="bi bi-lightbulb"></i> ${step.intent}
-                                    </small>
+                                
+                                <div class="flex-grow-1 position-relative" style="padding-left: 45px;">
+                                    <div class="suggestion-icon" style="left: 0;">
+                                        <i class="bi bi-geo-alt-fill"></i>
+                                    </div>
+                                    <h6 class="fw-bold text-dark mb-1" style="font-size: 0.95rem;">${step.place.name}</h6>
+                                    <div class="small text-muted text-truncate mb-2">${step.place.address}</div>
+                                    <div class="d-flex align-items-center justify-content-between">
+                                        <span class="badge bg-light text-dark border fw-normal">${step.time.start} - ${step.time.end}</span>
+                                        <small class="text-primary fst-italic" style="font-size: 0.75rem;">
+                                            <i class="bi bi-lightbulb"></i> ${step.intent}
+                                        </small>
+                                    </div>
                                 </div>
                             </div>
                         `;
                     });
+                }
+                
+                // Helper function to toggle checkbox when clicking the card
+                window.togglePlanItem = function(index) {
+                    const cb = document.getElementById(`plan_check_${index}`);
+                    // Prevent double toggle if clicking directly on checkbox
+                    if (event.target !== cb) {
+                        cb.checked = !cb.checked;
+                    }
                 }
                 timelineList.innerHTML = html;
             }
@@ -536,19 +555,29 @@
             btnSave.addEventListener('click', function() {
                 if(currentPlanSteps.length === 0) return;
                 
+                // [NEW] Lọc các bước được chọn (Checked)
+                const checkboxes = document.querySelectorAll('.plan-checkbox:checked');
+                if (checkboxes.length === 0) {
+                    alert("Bạn chưa chọn địa điểm nào để lưu!");
+                    return;
+                }
+
+                // Map từ checkbox value (index) sang object step thực sự
+                const selectedSteps = Array.from(checkboxes).map(cb => currentPlanSteps[parseInt(cb.value)]);
+
                 // [FIX] Lấy ngày người dùng đã chọn trong ô input
                 const dateInput = document.getElementById('planDate');
                 const selectedDate = dateInput ? dateInput.value : null;
 
-                console.log("Saving plan for date:", selectedDate); // Debug check
+                console.log("Saving plan for date:", selectedDate);
 
                 btnSave.disabled = true;
                 btnSave.innerHTML = '<span class="spinner-border spinner-border-sm"></span> Đang lưu...';
                 
                 socket.emit('save_ai_plan', {
                     room_id: roomId,
-                    plan_steps: currentPlanSteps,
-                    plan_date: selectedDate // <--- Gửi thêm trường này
+                    plan_steps: selectedSteps, // Gửi danh sách đã lọc
+                    plan_date: selectedDate
                 });
             });
         }
